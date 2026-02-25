@@ -15,6 +15,7 @@ from llama_index.core.postprocessor import (
 )
 from llama_index.core.storage import StorageContext
 from llama_index.core.types import TokenGen
+from private_gpt.components.metadata_retrivial.metadata_retrivial_component import MetadataRetrivialComponent
 from pydantic import BaseModel
 
 from private_gpt.components.embedding.embedding_component import EmbeddingComponent
@@ -26,6 +27,11 @@ from private_gpt.components.vector_store.vector_store_component import (
 from private_gpt.open_ai.extensions.context_filter import ContextFilter
 from private_gpt.server.chunks.chunks_service import Chunk
 from private_gpt.settings.settings import Settings
+
+from llama_index.llms.ollama import Ollama
+
+
+import logging
 
 if TYPE_CHECKING:
     from llama_index.core.postprocessor.types import BaseNodePostprocessor
@@ -40,6 +46,7 @@ class CompletionGen(BaseModel):
     response: TokenGen
     sources: list[Chunk] | None = None
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class ChatEngineInput:
@@ -104,19 +111,33 @@ class ChatService:
             embed_model=embedding_component.embedding_model,
             show_progress=True,
         )
-
     def _chat_engine(
         self,
+        user_prompt: str | None = None,
         system_prompt: str | None = None,
         use_context: bool = False,
         context_filter: ContextFilter | None = None,
     ) -> BaseChatEngine:
         settings = self.settings
         if use_context:
+            # Generate metadata from user prompt
+            metadata = MetadataRetrivialComponent(settings).generate_chunk_metadata(user_prompt, "", settings.metadata_generation.max_entry_per_category) if user_prompt else []
+
+            # Create additional filters with generated tags
+            additional_filters = None
+            # Remove empty values and empty arrays from metadata
+            additional_filters = {
+                key: value 
+                for key, value in metadata.items() 
+                if value and (not isinstance(value, list) or len(value) > 0)
+            }
+            additional_filters = additional_filters if additional_filters else None
+
             vector_index_retriever = self.vector_store_component.get_retriever(
                 index=self.index,
                 context_filter=context_filter,
                 similarity_top_k=self.settings.rag.similarity_top_k,
+                additional_filters=additional_filters,
             )
             node_postprocessors: list[BaseNodePostprocessor] = [
                 MetadataReplacementPostProcessor(target_metadata_key="window"),
@@ -166,8 +187,8 @@ class ChatService:
         chat_history = (
             chat_engine_input.chat_history if chat_engine_input.chat_history else None
         )
-
         chat_engine = self._chat_engine(
+            user_prompt=last_message,
             system_prompt=system_prompt,
             use_context=use_context,
             context_filter=context_filter,
@@ -176,7 +197,27 @@ class ChatService:
             message=last_message if last_message is not None else "",
             chat_history=chat_history,
         )
+
         sources = [Chunk.from_node(node) for node in streaming_response.source_nodes]
+
+        # Zeige Sources schön formatiert an
+        print("\n" + "="*80)
+        print("📚 RETRIEVED SOURCES")
+        print("="*80 + "\n")
+
+        for i, chunk in enumerate(sources, 1):
+            print(f"{'─'*80}")
+            print(f"Source {i}/{len(sources)}")
+            print(f"{'─'*80}")
+            print(f"📄 File: {chunk.document.doc_metadata.get('file_name', 'unknown')}")
+            
+            print(f"⭐ Score: {chunk.score:.4f}")
+            print(f"\n💬 Text Preview:")
+            print(f"{chunk.text[:300]}{'...' if len(chunk.text) > 300 else ''}")
+            print()
+
+        print("="*80 + "\n")
+        
         completion_gen = CompletionGen(
             response=streaming_response.response_gen, sources=sources
         )

@@ -479,7 +479,6 @@ class PipelineIngestComponent(BaseIngestComponentWithIndex):
         self._flush()
         return docs
 
-
 def get_ingestion_component(
     storage_context: StorageContext,
     embed_model: EmbedType,

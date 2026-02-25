@@ -4,18 +4,25 @@ from pathlib import Path
 from typing import TYPE_CHECKING, AnyStr, BinaryIO
 
 from injector import inject, singleton
-from llama_index.core.node_parser import SentenceWindowNodeParser
 from llama_index.core.storage import StorageContext
+from llama_index.core.node_parser import SentenceSplitter
+from llama_index.llms.ollama import Ollama
 
 from private_gpt.components.embedding.embedding_component import EmbeddingComponent
 from private_gpt.components.ingest.ingest_component import get_ingestion_component
 from private_gpt.components.llm.llm_component import LLMComponent
+from private_gpt.components.metadata_retrivial.metadata_retrivial_component import MetadataRetrivialComponent
+from private_gpt.components.metadata_retrivial.metadata_retrivial_parser import LLMMetadataTransformation
+from private_gpt.components.node_store.context_retrivial_parser import LLMSummaryTransformation
 from private_gpt.components.node_store.node_store_component import NodeStoreComponent
 from private_gpt.components.vector_store.vector_store_component import (
     VectorStoreComponent,
 )
 from private_gpt.server.ingest.model import IngestedDoc
 from private_gpt.settings.settings import settings
+
+from llama_index.core.node_parser import SemanticSplitterNodeParser
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 if TYPE_CHECKING:
     from llama_index.core.storage.docstore.types import RefDocInfo
@@ -39,12 +46,53 @@ class IngestService:
             docstore=node_store_component.doc_store,
             index_store=node_store_component.index_store,
         )
-        node_parser = SentenceWindowNodeParser.from_defaults()
+
+        # 1.1 Chunking Embedding
+        chunking_embed = HuggingFaceEmbedding(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            device="cpu",
+            cache_folder="./models/embedding_cache"
+        )
+
+        # 1.2 Semantic Splitter
+        semantic_splitter = SemanticSplitterNodeParser.from_defaults(
+            buffer_size=1,
+            breakpoint_percentile_threshold=95,
+            embed_model=chunking_embed
+        )
+
+        # 2. Size Limiter
+        size_limiter = SentenceSplitter(
+            chunk_size=512, 
+            chunk_overlap=50
+        )
+
+        # 3.1 LLm summary 
+        summary_llm = Ollama(
+            model="qwen2.5:0.5b",
+            request_timeout=30.0,
+            temperature=0.3,
+        )
+
+        # 3.2 add summary to chunks
+        contextual_retrivial = LLMSummaryTransformation(
+            summary_llm=summary_llm,
+            summary_format="natural",
+        )
+
+        # 4.1 metadata Component
+        metadata_component = MetadataRetrivialComponent(settings=settings())
+
+        # 4.2 Add metadata to chunks
+        metadata_transformation = LLMMetadataTransformation(
+            metadata_retrivial_component=metadata_component,
+            max_metadata=settings().metadata_generation.max_entry_per_category,
+        )
 
         self.ingest_component = get_ingestion_component(
             self.storage_context,
             embed_model=embedding_component.embedding_model,
-            transformations=[node_parser, embedding_component.embedding_model],
+            transformations=[semantic_splitter, size_limiter, contextual_retrivial, metadata_transformation, embedding_component.embedding_model],
             settings=settings(),
         )
 

@@ -5,9 +5,11 @@ from llama_index.core.readers import StringIterableReader
 from llama_index.core.readers.base import BaseReader
 from llama_index.core.readers.json import JSONReader
 from llama_index.core.schema import Document
+from private_gpt.components.ingest.custom_file_reader.code_reader import CodeReader
+from private_gpt.components.ingest.custom_file_reader.pdf_one_doc_reader import OneDocumentPDFReader
+
 
 logger = logging.getLogger(__name__)
-
 
 # Inspired by the `llama_index.core.readers.file.base` module
 def _try_loading_included_file_formats() -> dict[str, type[BaseReader]]:
@@ -32,7 +34,7 @@ def _try_loading_included_file_formats() -> dict[str, type[BaseReader]]:
 
     default_file_reader_cls: dict[str, type[BaseReader]] = {
         ".hwp": HWPReader,
-        ".pdf": PDFReader,
+        ".pdf": OneDocumentPDFReader,
         ".docx": DocxReader,
         ".pptx": PptxReader,
         ".ppt": PptxReader,
@@ -47,6 +49,36 @@ def _try_loading_included_file_formats() -> dict[str, type[BaseReader]]:
         ".md": MarkdownReader,
         ".mbox": MboxReader,
         ".ipynb": IPYNBReader,
+
+        # Code files - Python
+        ".py": CodeReader,
+        ".py.comments": CodeReader,
+        # Code files - JavaScript
+        ".js": CodeReader,
+        ".js.comments": CodeReader,
+        ".jsx": CodeReader,
+        ".jsx.comments": CodeReader,
+        ".mjs": CodeReader,
+        ".mjs.comments": CodeReader,
+        # Code files - C
+        ".c": CodeReader,
+        ".c.comments": CodeReader,
+        ".h": CodeReader,
+        ".h.comments": CodeReader,
+        # Code files - C++
+        ".cpp": CodeReader,
+        ".cpp.comments": CodeReader,
+        ".cc": CodeReader,
+        ".cc.comments": CodeReader,
+        ".cxx": CodeReader,
+        ".cxx.comments": CodeReader,
+        ".hpp": CodeReader,
+        ".hpp.comments": CodeReader,
+        ".hxx": CodeReader,
+        ".hxx.comments": CodeReader,
+        # Code files - C#
+        ".cs": CodeReader,
+        ".cs.comments": CodeReader,
     }
     return default_file_reader_cls
 
@@ -58,8 +90,6 @@ FILE_READER_CLS.update(
         ".json": JSONReader,
     }
 )
-
-
 class IngestionHelper:
     """Helper class to transform a file into a list of documents.
 

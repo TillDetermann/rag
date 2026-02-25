@@ -586,7 +586,19 @@ class MilvusSettings(BaseModel):
         True, description="Overwrite the previous collection schema if it exists."
     )
 
-
+class MetaDataGenerationSettings(BaseModel):
+    enable: bool = Field(
+        False,
+        description="Enable automatic tag generation from document content using LLM",
+    )
+    max_entry_per_category: int = Field(
+        2,
+        description="Maximum number of tags to generate per category",
+    )
+    predefined: dict = Field(
+        default={},
+        description="Dict of predefined tags available for metadata documents",
+    )
 class Settings(BaseModel):
     server: ServerSettings
     data: DataSettings
@@ -604,6 +616,7 @@ class Settings(BaseModel):
     nodestore: NodeStoreSettings
     rag: RagSettings
     summarize: SummarizeSettings
+    metadata_generation: MetaDataGenerationSettings
     qdrant: QdrantSettings | None = None
     postgres: PostgresSettings | None = None
     clickhouse: ClickHouseSettings | None = None

@@ -17,18 +17,32 @@ from private_gpt.settings.settings import Settings
 logger = logging.getLogger(__name__)
 
 
-def _doc_id_metadata_filter(
+
+def _extended_metadata_filter(
     context_filter: ContextFilter | None,
+    additional_filters: dict[str, typing.Any] | None = None,
 ) -> MetadataFilters:
+    
     filters = MetadataFilters(filters=[], condition=FilterCondition.OR)
 
     if context_filter is not None and context_filter.docs_ids is not None:
+        doc_id_filters = MetadataFilters(filters=[], condition=FilterCondition.OR)
         for doc_id in context_filter.docs_ids:
-            filters.filters.append(MetadataFilter(key="doc_id", value=doc_id))
+            doc_id_filters.filters.append(MetadataFilter(key="doc_id", value=doc_id))
+        filters.filters.append(doc_id_filters)
 
+    if additional_filters:
+        for key, value in additional_filters.items():
+            if value is not None:
+                # Handle arrays with OR logic
+                if isinstance(value, list) and len(value) > 0:
+                    tag_filters = MetadataFilters(filters=[], condition=FilterCondition.OR)
+                    for tag in value:
+                        tag_filters.filters.append(MetadataFilter(key=key, value=tag))
+                    filters.filters.append(tag_filters)
+                elif not isinstance(value, list):
+                    filters.filters.append(MetadataFilter(key=key, value=value))
     return filters
-
-
 @singleton
 class VectorStoreComponent:
     settings: Settings
@@ -199,17 +213,13 @@ class VectorStoreComponent:
         index: VectorStoreIndex,
         context_filter: ContextFilter | None = None,
         similarity_top_k: int = 2,
+        additional_filters: dict[str, typing.Any] | None = None,
     ) -> VectorIndexRetriever:
-        # This way we support qdrant (using doc_ids) and the rest (using filters)
+        
         return VectorIndexRetriever(
             index=index,
             similarity_top_k=similarity_top_k,
-            doc_ids=context_filter.docs_ids if context_filter else None,
-            filters=(
-                _doc_id_metadata_filter(context_filter)
-                if self.settings.vectorstore.database != "qdrant"
-                else None
-            ),
+            filters=_extended_metadata_filter(context_filter, additional_filters),
         )
 
     def close(self) -> None:
