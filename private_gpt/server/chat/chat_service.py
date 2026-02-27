@@ -30,17 +30,14 @@ from private_gpt.settings.settings import Settings
 
 from llama_index.llms.ollama import Ollama
 
-
 import logging
 
 if TYPE_CHECKING:
     from llama_index.core.postprocessor.types import BaseNodePostprocessor
 
-
 class Completion(BaseModel):
     response: str
     sources: list[Chunk] | None = None
-
 
 class CompletionGen(BaseModel):
     response: TokenGen
@@ -81,7 +78,6 @@ class ChatEngineInput:
             chat_history=chat_history,
         )
 
-
 @singleton
 class ChatService:
     settings: Settings
@@ -121,7 +117,7 @@ class ChatService:
         settings = self.settings
         if use_context:
             # Generate metadata from user prompt
-            metadata = MetadataRetrivialComponent(settings).generate_chunk_metadata(user_prompt, "", settings.metadata_generation.max_entry_per_category) if user_prompt else []
+            metadata = MetadataRetrivialComponent(settings).generate_chunk_metadata(user_prompt, "", settings.metadata_generation.max_entry_per_category) if user_prompt else {}
 
             # Create additional filters with generated tags
             additional_filters = None
@@ -132,6 +128,8 @@ class ChatService:
                 if value and (not isinstance(value, list) or len(value) > 0)
             }
             additional_filters = additional_filters if additional_filters else None
+
+            additional_filters = None
 
             vector_index_retriever = self.vector_store_component.get_retriever(
                 index=self.index,

@@ -47,6 +47,8 @@ class IngestService:
             index_store=node_store_component.index_store,
         )
 
+        self.settings = settings()
+
         # 1.1 Chunking Embedding
         chunking_embed = HuggingFaceEmbedding(
             model_name="sentence-transformers/all-MiniLM-L6-v2",
@@ -69,8 +71,9 @@ class IngestService:
 
         # 3.1 LLm summary 
         summary_llm = Ollama(
-            model="qwen2.5:0.5b",
-            request_timeout=30.0,
+            model=self.settings.ollama.worker_llm,
+            api_base=self.settings.ollama.api_base,
+            request_timeout=self.settings.ollama.request_timeout,
             temperature=0.3,
         )
 
@@ -81,19 +84,19 @@ class IngestService:
         )
 
         # 4.1 metadata Component
-        metadata_component = MetadataRetrivialComponent(settings=settings())
+        metadata_component = MetadataRetrivialComponent(settings=self.settings)
 
         # 4.2 Add metadata to chunks
         metadata_transformation = LLMMetadataTransformation(
             metadata_retrivial_component=metadata_component,
-            max_metadata=settings().metadata_generation.max_entry_per_category,
+            max_metadata=self.settings.metadata_generation.max_entry_per_category,
         )
 
         self.ingest_component = get_ingestion_component(
             self.storage_context,
             embed_model=embedding_component.embedding_model,
             transformations=[semantic_splitter, size_limiter, contextual_retrivial, metadata_transformation, embedding_component.embedding_model],
-            settings=settings(),
+            settings=self.settings,
         )
 
     def _ingest_data(self, file_name: str, file_data: AnyStr) -> list[IngestedDoc]:

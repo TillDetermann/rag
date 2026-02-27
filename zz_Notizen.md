@@ -86,7 +86,6 @@ Wir verwenden hier noch 'simple' → JSON, local
 - und wenn er aktionen ausführen soll, versende eine email
 - glaube das brauchen wir nicht weil wir ja wahrscheinlihc nur text, code, zeichnungen haben
 
-
 ## 5. Beispiel Prompt:
 
 Please explain the standard steps of a Genetic Algorithm (GA) in detail.
@@ -115,8 +114,15 @@ Please structure your answer as follows:
 -  technischen zeichungen -> inventor, autocad export funktion??
     -> geht sowohl als pdf, 3d pdf und csv. tabelle der paramter
 
+mal testen mit cad modell open source step oder pdf oder andere formate
+
 Quelle: PDF: https://www.autodesk.com/learn/ondemand/tutorial/export-drawing-to-pdf-file?us_oa=dotcom-us&us_si=221c5be1-fdc8-4402-a9c1-c62262ce37a0&us_st=export%20to%20pdf
 
 3d-PDF: https://forums.autodesk.com/t5/inventor-forum/can-t-export-to-3d-pdf/td-p/11017641?us_oa=dotcom-us&us_si=7dbd5cc1-62f6-453c-b6f9-0ccfd0900b6d&us_st=export%20to%203d%20pdf
 
-TO csv: https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfdcarticles/How-to-export-all-parameters-in-Revit-families-in-a-Content-Catalog-collection-to-Excel-CSV-or-Power-BI.html?us_oa=forums-us&us_si=5dae9988-b396-4739-8e7f-3bdcd6b3b779&us_st=export%20parameter%20to%20csv
+To csv: https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfdcarticles/How-to-export-all-parameters-in-Revit-families-in-a-Content-Catalog-collection-to-Excel-CSV-or-Power-BI.html?us_oa=forums-us&us_si=5dae9988-b396-4739-8e7f-3bdcd6b3b779&us_st=export%20parameter%20to%20csv
+
+CADdy: ???
+
+- kleine githib opensource pürojekt emit cad raus finden und gucken wie die aufbereitet werden können
+- COde incht als raw sondern als text beschirben, pre chunken von code in funktion???

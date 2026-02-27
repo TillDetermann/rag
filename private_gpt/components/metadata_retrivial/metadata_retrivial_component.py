@@ -39,11 +39,12 @@ class MetadataRetrivialComponent:
             return {}
 
         tag_llm = Ollama(
-            model="qwen2.5:0.5b",
-            request_timeout=30.0,
+            model=self.settings.ollama.worker_llm,
+            api_base=self.settings.ollama.api_base,
+            request_timeout=self.settings.ollama.request_timeout,
             temperature=0.3,
         )
-        
+                
         available_tags = self.get_all_tags()
         
         categories = "\n".join(f"   {key}: {', '.join(available_tags[key])}" for key in available_tags.keys())

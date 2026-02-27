@@ -16,8 +16,6 @@ from private_gpt.settings.settings import Settings
 
 logger = logging.getLogger(__name__)
 
-
-
 def _extended_metadata_filter(
     context_filter: ContextFilter | None,
     additional_filters: dict[str, typing.Any] | None = None,

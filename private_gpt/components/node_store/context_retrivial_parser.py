@@ -7,7 +7,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 class LLMSummaryTransformation(NodeParser):
     """
     Transformation that adds LLM-generated summaries at the beginning of each chunk.
@@ -22,6 +21,7 @@ class LLMSummaryTransformation(NodeParser):
         default="Summarize the following text in EXACTLY 3 sentences. Do not write more than 3 sentences:\n\n {text}\n\nSummary:",
         description="Prompt template for generating summaries"
     )
+    
     max_text_length_for_summary: int = Field(
         default=1000,
         description="Maximum text length for summary input (will be truncated if longer)"
@@ -59,7 +59,6 @@ class LLMSummaryTransformation(NodeParser):
             summary_format=summary_format,
             **kwargs
         )
-        
         # Set LLM as private attribute (not validated by Pydantic)
         self._summary_llm = summary_llm
         

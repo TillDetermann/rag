@@ -297,6 +297,10 @@ class OllamaSettings(BaseModel):
         None,
         description="Model to use. Example: 'nomic-embed-text'.",
     )
+    worker_llm: str = Field(
+        "qwen2.5:0.5b",
+        description="Model to use. Example: 'qwen2.5:0.5b'.",
+    )
     keep_alive: str = Field(
         "5m",
         description="Time the model will stay loaded in memory after a request. examples: 5m, 5h, '-1' ",

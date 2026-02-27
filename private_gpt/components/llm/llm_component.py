@@ -170,6 +170,7 @@ class LLMComponent:
                             f"check if Ollama server is running on {ollama_settings.api_base}"
                         )
                     pull_model(llm.client, model_name)
+                    pull_model(llm.client, "qwen2.5:0.5b")
 
                 if (
                     ollama_settings.keep_alive

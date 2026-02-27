@@ -58,7 +58,7 @@ ui:
   delete_all_files_button_enabled: true
 
 llm:
-  mode: llamacpp
+  mode: ollama
   prompt_style: "llama3"
   # Should be matching the selected model
   max_new_tokens: 512
@@ -78,7 +78,7 @@ rag:
     top_n: 4
 
 metadata_generation:
-  enable: true
+  enable: false
   max_entry_per_category: 2
   predefined:
     content:
@@ -112,7 +112,7 @@ llamacpp:
 
 embedding:
   # Should be matching the value above in most cases
-  mode: huggingface
+  mode: ollama
   ingest_mode: simple
   embed_dim: 768 # 768 is for nomic-ai/nomic-embed-text-v1.5
 
@@ -124,10 +124,10 @@ huggingface:
   trust_remote_code: true
 
 vectorstore:
-  database: qdrant
+  database: postgres
 
 nodestore:
-  database: simple
+  database: postgres
 
 milvus:
   uri: local_data/private_gpt/milvus/milvus_local.db
@@ -157,11 +157,12 @@ openai:
 ollama:
   llm_model: qwen3:4b
   embedding_model: nomic-embed-text
-  api_base: http://localhost:11434
-  embedding_api_base: http://localhost:11434  # change if your embedding model runs on another ollama 
+  worker_llm: qwen2.5:0.5b
+  api_base: http://ollama:11434
+  embedding_api_base: http://ollama:11434  # change if your embedding model runs on another ollama 
   keep_alive: 5m
   request_timeout: 120.0
-  autopull_models: true
+  autopull_models: false
 
 azopenai:
   api_key: ${AZ_OPENAI_API_KEY:}

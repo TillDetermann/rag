@@ -24,7 +24,6 @@ from private_gpt.utils.eta import eta
 
 logger = logging.getLogger(__name__)
 
-
 class BaseIngestComponent(abc.ABC):
     def __init__(
         self,
@@ -50,7 +49,6 @@ class BaseIngestComponent(abc.ABC):
     @abc.abstractmethod
     def delete(self, doc_id: str) -> None:
         pass
-
 
 class BaseIngestComponentWithIndex(BaseIngestComponent, abc.ABC):
     def __init__(
@@ -105,7 +103,6 @@ class BaseIngestComponentWithIndex(BaseIngestComponent, abc.ABC):
             # Save the index
             self._save_index()
 
-
 class SimpleIngestComponent(BaseIngestComponentWithIndex):
     def __init__(
         self,
@@ -145,7 +142,6 @@ class SimpleIngestComponent(BaseIngestComponentWithIndex):
             self._save_index()
             logger.debug("Persisted the index and nodes")
         return documents
-
 
 class BatchIngestComponent(BaseIngestComponentWithIndex):
     """Parallelize the file reading and parsing on multiple CPU core.
