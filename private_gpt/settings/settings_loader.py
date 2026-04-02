@@ -28,7 +28,6 @@ active_profiles: list[str] = unique_list(
     + _test_profile
 )
 
-
 def merge_settings(settings: Iterable[dict[str, Any]]) -> dict[str, Any]:
     return functools.reduce(deep_update, settings, {})
 

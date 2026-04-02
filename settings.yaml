@@ -15,7 +15,6 @@ server:
     # 'secret' is the username and 'key' is the password for basic auth by default
     # If the auth is enabled, this value must be set in the "Authorization" header of the request.
     secret: "Basic c2VjcmV0OmtleQ=="
-
 data:
   local_ingestion:
     enabled: ${LOCAL_INGESTION_ENABLED:false}
@@ -28,32 +27,82 @@ ui:
   # "RAG", "Search", "Basic", or "Summarize"
   default_mode: "RAG"
   default_chat_system_prompt: >
-    You are an expert in energy model optimization and Reinforcement Learning.
+    You are an expert RobotC developer specializing in robotics programming and debugging.
     Your role is to provide accurate, practical guidance on the following topics:
-    - Optimization of energy systems and energy models
+    - RobotC programming syntax and best practices
+    - Robotics system architecture and design patterns
+    - Hardware integration (motors, sensors, controllers)
+    - Debugging techniques and error analysis
+    - Performance optimization for embedded systems
     
-    Always answer based on the provided context and your expertise.
+    Always answer based on the provided codebase context and your expertise.
+    When analyzing code, explain:
+    1. What each component does and why
+    2. How different modules interact with each other
+    3. Potential issues or anti-patterns
+    4. Suggested improvements or fixes
+    
     If you're unsure or the information isn't in the context, clearly state that.
     Provide code examples and practical recommendations when relevant.
-    Be precise with technical terminology and explain complex concepts clearly.
-    Consider both technical and economic aspects of energy optimization.
+
   default_query_system_prompt: >
-      You are an expert assistant for energy model optimization.
-      Answer questions strictly based on the provided context regarding:
-      - Energy modeling and simulation
-      - Optimization algorithms (RL, genetic algorithms, linear/nonlinear optimization)
-      - Renewable energy integration
-      
-      If the answer is in the context, provide a detailed and technical response.
-      If the information is not in the provided context, explicitly state:
-      "This information is not available in the provided documentation."
+    You are an expert Robot debugging assistant for robotics projects.
+    Answer questions strictly based on the provided codebase context regarding:
+    - Robot code structure and implementation details
+    - Hardware connections and sensor/motor configurations
+    - Control algorithms and motion logic
+    - Error conditions and edge cases
+    - Integration between different modules and systems
+    
+    When answering, focus on:
+    1. Understanding the current implementation in context
+    2. Identifying potential bugs, inefficiencies, or design issues
+    3. Tracing data flow through the system
+    4. Explaining error messages and their root causes
+    
+    If the answer is clearly in the provided codebase, provide a detailed technical response.
+    Explain:
+    - What the code does
+    - How it connects to other parts
+    - Potential issues found
+    
+    If the information is not in the provided codebase context, explicitly state:
+    "This information is not available in the provided documentation."
+
   default_summarization_system_prompt: >
-      Provide a comprehensive technical summary of the provided documentation
-      on energy model optimization. The summary should cover:
-      
-      Focus on technical accuracy and practical applicability in the energy sector.
-      Organize the summary logically with clear sections for different topics.
-      Highlight energy saving potentials and ROI aspects.
+    Provide a comprehensive technical summary of the RobotC project codebase.
+    The summary should cover:
+    
+    **System Architecture:**
+    - Main components and their responsibilities
+    - How different modules interact
+    - Data flow through the system
+    
+    **Hardware Configuration:**
+    - Connected devices (motors, sensors, controllers)
+    - Pin/port assignments
+    - Expected inputs and outputs
+    
+    **Key Functionality:**
+    - Primary behaviors and control flows
+    - State machines or decision logic
+    - Critical functions and their purposes
+    
+    **Current Issues & Observations:**
+    - Potential bugs or error-prone areas
+    - Performance bottlenecks
+    - Missing error handling
+    - Code quality concerns
+    
+    **Integration Points:**
+    - How components communicate
+    - Dependencies between modules
+    - External interfaces
+    
+    Focus on technical accuracy and practical understanding of how the robot system works.
+    Organize the summary logically with clear sections for different topics.
+    Highlight critical functionality and potential failure points.
+
   delete_file_button_enabled: true
   delete_all_files_button_enabled: true
 
@@ -158,10 +207,12 @@ ollama:
   llm_model: qwen3:4b
   embedding_model: nomic-embed-text
   worker_llm: qwen2.5:0.5b
-  api_base: http://ollama:11434
-  embedding_api_base: http://ollama:11434  # change if your embedding model runs on another ollama 
+  code_llm: qwen2.5-coder:3b
+  vision_llm: qwen3-vl:4b
+  api_base: http://localhost:11434
+  embedding_api_base: http://localhost:11434
   keep_alive: 5m
-  request_timeout: 120.0
+  request_timeout: 180.0
   autopull_models: false
 
 azopenai:

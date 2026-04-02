@@ -301,6 +301,14 @@ class OllamaSettings(BaseModel):
         "qwen2.5:0.5b",
         description="Model to use. Example: 'qwen2.5:0.5b'.",
     )
+    code_llm: str = Field(
+        "qwen2.5-coder:3b",
+        description="Model to use for code. Example: 'qwen2.5-coder:3b'.",
+    )
+    vision_llm: str = Field(
+        "qwen3-vl:4b",
+        description="Model to use for images. Example: 'qwen3-vl:4b'.",
+    )
     keep_alive: str = Field(
         "5m",
         description="Time the model will stay loaded in memory after a request. examples: 5m, 5h, '-1' ",

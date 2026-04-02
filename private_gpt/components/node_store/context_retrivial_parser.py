@@ -3,6 +3,7 @@ from llama_index.core.schema import BaseNode, TextNode
 from llama_index.core.llms import LLM
 from llama_index.core.node_parser import NodeParser
 from llama_index.core.bridge.pydantic import Field, PrivateAttr
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -208,7 +209,7 @@ class LLMSummaryTransformation(NodeParser):
             return content
         
         if self.summary_format == "natural":
-            # RECOMMENDED: Most natural format - just summary then content
+            # Most natural format - just summary then content
             return f"{summary}\n\n{content}"
         
         elif self.summary_format == "contextual":

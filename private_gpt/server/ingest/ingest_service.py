@@ -5,11 +5,12 @@ from typing import TYPE_CHECKING, AnyStr, BinaryIO
 
 from injector import inject, singleton
 from llama_index.core.storage import StorageContext
-from llama_index.core.node_parser import SentenceSplitter
-from llama_index.llms.ollama import Ollama
 
 from private_gpt.components.embedding.embedding_component import EmbeddingComponent
 from private_gpt.components.ingest.ingest_component import get_ingestion_component
+from private_gpt.components.ingest.ingest_strategy import IngestionStrategyRegistry
+from private_gpt.components.ingest.strategies.code_strategy import CodeStrategy
+from private_gpt.components.ingest.strategies.document_strategy import DocumentStrategy
 from private_gpt.components.llm.llm_component import LLMComponent
 from private_gpt.components.metadata_retrivial.metadata_retrivial_component import MetadataRetrivialComponent
 from private_gpt.components.metadata_retrivial.metadata_retrivial_parser import LLMMetadataTransformation
@@ -21,14 +22,10 @@ from private_gpt.components.vector_store.vector_store_component import (
 from private_gpt.server.ingest.model import IngestedDoc
 from private_gpt.settings.settings import settings
 
-from llama_index.core.node_parser import SemanticSplitterNodeParser
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-
 if TYPE_CHECKING:
     from llama_index.core.storage.docstore.types import RefDocInfo
 
 logger = logging.getLogger(__name__)
-
 
 @singleton
 class IngestService:
@@ -46,56 +43,24 @@ class IngestService:
             docstore=node_store_component.doc_store,
             index_store=node_store_component.index_store,
         )
-
         self.settings = settings()
 
-        # 1.1 Chunking Embedding
-        chunking_embed = HuggingFaceEmbedding(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            device="cpu",
-            cache_folder="./models/embedding_cache"
+        # --- Strategy Registry ---
+        self.strategy_registry = IngestionStrategyRegistry()
+        self.strategy_registry.register(
+            DocumentStrategy(
+                settings=self.settings
+            ),
+            default=True,
         )
-
-        # 1.2 Semantic Splitter
-        semantic_splitter = SemanticSplitterNodeParser.from_defaults(
-            buffer_size=1,
-            breakpoint_percentile_threshold=95,
-            embed_model=chunking_embed
+        self.strategy_registry.register(
+            CodeStrategy(
+                settings=self.settings
+            ),
         )
-
-        # 2. Size Limiter
-        size_limiter = SentenceSplitter(
-            chunk_size=512, 
-            chunk_overlap=50
-        )
-
-        # 3.1 LLm summary 
-        summary_llm = Ollama(
-            model=self.settings.ollama.worker_llm,
-            api_base=self.settings.ollama.api_base,
-            request_timeout=self.settings.ollama.request_timeout,
-            temperature=0.3,
-        )
-
-        # 3.2 add summary to chunks
-        contextual_retrivial = LLMSummaryTransformation(
-            summary_llm=summary_llm,
-            summary_format="natural",
-        )
-
-        # 4.1 metadata Component
-        metadata_component = MetadataRetrivialComponent(settings=self.settings)
-
-        # 4.2 Add metadata to chunks
-        metadata_transformation = LLMMetadataTransformation(
-            metadata_retrivial_component=metadata_component,
-            max_metadata=self.settings.metadata_generation.max_entry_per_category,
-        )
-
         self.ingest_component = get_ingestion_component(
             self.storage_context,
             embed_model=embedding_component.embedding_model,
-            transformations=[semantic_splitter, size_limiter, contextual_retrivial, metadata_transformation, embedding_component.embedding_model],
             settings=self.settings,
         )
 
@@ -118,7 +83,12 @@ class IngestService:
 
     def ingest_file(self, file_name: str, file_data: Path) -> list[IngestedDoc]:
         logger.info("Ingesting file_name=%s", file_name)
-        documents = self.ingest_component.ingest(file_name, file_data)
+        strategy = self.strategy_registry.get_strategy(file_name)
+        ext = Path(file_name).suffix.lower()
+        reader = strategy.get_reader()
+        transformations_per_doc_type = strategy.get_transformations_per_doc_type(ext)
+        
+        documents = self.ingest_component.ingest(file_name, reader, file_data, transformations_per_doc_type)
         logger.info("Finished ingestion file_name=%s", file_name)
         return [IngestedDoc.from_document(document) for document in documents]
 
@@ -135,7 +105,13 @@ class IngestService:
 
     def bulk_ingest(self, files: list[tuple[str, Path]]) -> list[IngestedDoc]:
         logger.info("Ingesting file_names=%s", [f[0] for f in files])
-        documents = self.ingest_component.bulk_ingest(files)
+        strategies = [self.strategy_registry.get_strategy(file_name) for file_name, _ in files]
+
+        readers = {file_data: strategy.get_reader() for strategy, (_,file_data) in zip(strategies, files)}
+
+        transformations_per_file = {file_data: strategy.get_transformations_per_doc_type(Path(file_name).suffix.lower()) for strategy, (file_name,file_data) in zip(strategies, files)}
+
+        documents = self.ingest_component.bulk_ingest(files, readers, transformations_per_file)
         logger.info("Finished ingestion file_name=%s", [f[0] for f in files])
         return [IngestedDoc.from_document(document) for document in documents]
 

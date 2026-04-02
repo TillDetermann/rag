@@ -31,7 +31,6 @@ class MetadataRetrivialComponent:
             chunk_text: The text content of the chunk
             document_title: Optional document title for context
             max_tags: Maximum number of tags per category
-            
         Returns:
             Dictionary with metadata tags
         """

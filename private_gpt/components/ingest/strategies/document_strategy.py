@@ -1,0 +1,83 @@
+from llama_index.core.node_parser import SentenceSplitter, SemanticSplitterNodeParser
+from llama_index.core.schema import TransformComponent
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.llms.ollama import Ollama
+from llama_index.core.readers.base import BaseReader
+
+from llama_index.core.embeddings import BaseEmbedding
+from private_gpt.components.ingest.custom_file_reader.pdf_one_doc_reader import OneDocumentPDFReader
+from private_gpt.components.ingest.ingest_strategy import IngestionStrategy
+from private_gpt.components.metadata_retrivial.metadata_retrivial_component import MetadataRetrivialComponent
+from private_gpt.components.metadata_retrivial.metadata_retrivial_parser import LLMMetadataTransformation
+from private_gpt.components.node_store.context_retrivial_parser import LLMSummaryTransformation
+from private_gpt.settings.settings import Settings
+
+
+class DocumentStrategy(IngestionStrategy):
+    """Ingestion strategy for natural-language documents (PDF, DOCX, TXT, MD).
+
+    Pipeline:
+        1. Semantic splitting (HuggingFace embedding similarity)
+        2. Size limiting (SentenceSplitter as guardrail)
+        3. Contextual summary per chunk (LLM)
+        4. Metadata enrichment (LLM)
+        5. Final embedding for vector store
+    """
+
+    EXTENSIONS: set[str] = {".pdf", ".docx", ".txt", ".md", ".rst", ".html", ".htm"}
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+
+        # --- 1. Semantic Splitter ---
+        chunking_embed = HuggingFaceEmbedding(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            device="cpu",
+            cache_folder="./models/embedding_cache",
+        )
+        self._semantic_splitter = SemanticSplitterNodeParser.from_defaults(
+            buffer_size=1,
+            breakpoint_percentile_threshold=95,
+            embed_model=chunking_embed,
+        )
+
+        # --- 2. Size Limiter ---
+        self._size_limiter = SentenceSplitter(
+            chunk_size=512,
+            chunk_overlap=50,
+        )
+
+        # --- 3. Contextual Summary ---
+        summary_llm = Ollama(
+            model=self._settings.ollama.worker_llm,
+            api_base=self._settings.ollama.api_base,
+            request_timeout=self._settings.ollama.request_timeout,
+            temperature=0.3,
+        )
+        self._summary_transform = LLMSummaryTransformation(
+            summary_llm=summary_llm,
+            summary_format="natural",
+        )
+
+        # --- 4. Metadata Enrichment ---
+        metadata_component = MetadataRetrivialComponent(settings=self._settings)
+        self._metadata_transform = LLMMetadataTransformation(
+            metadata_retrivial_component=metadata_component,
+            max_metadata=self._settings.metadata_generation.max_entry_per_category,
+        )
+
+    def supported_extensions(self) -> set[str]:
+        return self.EXTENSIONS
+
+    def get_transformations_per_doc_type(self, extension: str | None = None) -> dict[str, list[TransformComponent]]:
+        return {
+            "text-document": [
+            self._semantic_splitter,
+            self._size_limiter,
+            self._summary_transform,
+            self._metadata_transform
+            ],
+        }
+    
+    def get_reader(self)-> BaseReader:
+        return OneDocumentPDFReader()

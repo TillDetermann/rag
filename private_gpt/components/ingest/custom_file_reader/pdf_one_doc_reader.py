@@ -61,9 +61,9 @@ class OneDocumentPDFReader(BaseReader):
                 # Add combination-specific metadata
                 "total_pages": len(page_documents),
                 "file_name": file.name if isinstance(file, Path) else str(file),
-                "combined_from_pages": True,
-                "source_type": "combined_pdf",
-            }
+                "source_type": "pdf",
+            },
+            ref_doc_id=file.name if isinstance(file, Path) else str(file),
         )
         
         return [combined_document]

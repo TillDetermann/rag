@@ -1,102 +1,117 @@
+"""
+Enhanced Code Reader with Qwen2.5-Coder 3B Integration
+
+This module reads code files and generates high-level conceptual summaries
+using Qwen2.5-Coder 3B LLM, focusing on system-level understanding of
+processes and workflows implemented in the code.
+
+Designed for PrivateGPT ingestion with emphasis on semantic understanding
+rather than syntactic analysis.
+"""
+
 from llama_index.core.readers.base import BaseReader
 from llama_index.core.schema import Document
-from typing import Any, List
+from typing import Any, List, Optional
 from pathlib import Path
-import ast
-import re
+import logging
+from private_gpt.settings.settings import settings
+from llama_index.llms.ollama import Ollama
+from llama_index.core import Document
 
+logger = logging.getLogger(__name__)
 
 class CodeIngestionMode:
     """Enum for code ingestion modes"""
-    FULL = "full"
-    COMMENTS_ONLY = "comments_only"
+    CODE = "code"
+    SUMMARIZED = "summarized"
+    ALL = "all"
 
 
 class CodeReader(BaseReader):
-    """Code reader with different modes for multiple programming languages"""
+    """
+    Enhanced code reader that generates conceptual summaries using Qwen2.5-Coder.
+    
+    Supports multiple ingestion modes:
+    - full: Returns complete code
+    - summarized: LLM generates high-level conceptual summary (RECOMMENDED)
+    """
     
     LANGUAGE_MAP = {
         ".py": "python",
-        ".js": "javascript",
-        ".jsx": "javascript",
         ".c": "c",
+        ".h": "h",
         ".cpp": "cpp",
+        ".cc": "cc",
+        ".hpp": "hpp",
         ".cs": "csharp",
     }
     
-    def __init__(self):
+    def __init__(
+        self,
+        mode: str = CodeIngestionMode.ALL,
+    ):
         """
-        Initialize the CodeReader
-        """
-        self.mode = "full"
-    
-    @staticmethod
-    def _get_base_extension(file_path: Path) -> tuple[str, bool]:
-        """
-        Extracts the base extension and checks if it's a .comment file.
+        Initialize the Enhanced Code Reader.
         
         Args:
-            file_path: Path to the file
-            
-        Returns:
-            Tuple of (base_extension, is_comment_file)
+            mode: Ingestion mode (full or summarized)
+            ollama_model: Model to use for summarization (default: qwen2.5-coder:3b)
+            ollama_base_url: Base URL for Ollama service
         """
-        suffixes = file_path.suffixes
-        
-        # Check if file ends with .comment
-        is_comment_file = (len(suffixes) > 0 and suffixes[-1] == '.comments')
-        
-        # If .comment file, get the base extension
-        if is_comment_file and len(suffixes) > 1:
-            base_ext = suffixes[-2]
-            if base_ext in CodeReader.LANGUAGE_MAP:
-                return base_ext, True
-        
-        # Return the last suffix if single extension
-        return file_path.suffix.lower(), False
+        self.mode = mode
+        self.settings = settings()
+        self.code_llm = Ollama(
+            model=self.settings.ollama.code_llm,
+            api_base=self.settings.ollama.api_base,
+            request_timeout=self.settings.ollama.request_timeout,
+            temperature=0.3,
+        )
     
     def load_data(
-        self, 
-        file: Path, 
-        extra_info: dict[str, Any] | None = None
+        self,
+        file: Path,
+        extra_info: Optional[dict[str, Any]] = None
     ) -> List[Document]:
         """
-        Loads code file based on the selected mode.
-        Files ending in .comment automatically use comments_only mode.
+        Loads code file and generates summary based on selected mode.
         
         Args:
             file: Path to the code file
             extra_info: Additional metadata to include
             
         Returns:
-            List of Document objects
+            List of Document objects with conceptual content
         """
-        extension, is_comment_file = self._get_base_extension(file)
+        extension = file.suffixes[-1]
         language = self.LANGUAGE_MAP.get(extension, "python")
         
-        # Auto-switch to comments_only mode for .comment files
-        effective_mode = (
-            CodeIngestionMode.COMMENTS_ONLY 
-            if is_comment_file 
-            else self.mode
-        )
+        # Read file content
+        with open(file, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
         
-        if effective_mode == CodeIngestionMode.COMMENTS_ONLY:
-            return self._extract_comments_only(file, language, extra_info)
-        else:
-            # Read full code file
-            return self._read_full_code(file, language, extra_info)
-        
-    def _read_full_code(
+        if self.mode == CodeIngestionMode.SUMMARIZED:
+            return self._generate_conceptual_summary(
+                content, file, language, extra_info
+            )
+        elif self.mode == CodeIngestionMode.CODE:
+            return self._read_code(content, file, language, extra_info)
+        elif self.mode == CodeIngestionMode.ALL:
+            return self._generate_conceptual_summary(
+                content, file, language, extra_info
+            ) + self._read_code(content, file, language, extra_info)
+    
+    def _read_code(
         self,
+        content: str,
         file: Path,
         language: str,
-        extra_info: dict[str, Any] | None = None
+        extra_info: Optional[dict[str, Any]] = None
     ) -> List[Document]:
         """
-        Reads the complete code file.
+        Returns the complete code file.
         
         Args:
+            content: File content as string
             file: Path to the code file
             language: Programming language
             extra_info: Additional metadata
@@ -104,198 +119,140 @@ class CodeReader(BaseReader):
         Returns:
             List containing a single Document with full code
         """
-        with open(file, 'r', encoding='utf-8', errors='ignore') as f:
-            content = f.read()
-        
         metadata = extra_info or {}
         metadata.update({
             "file_name": file.name,
-            "file_path": str(file),
             "file_type": language,
-            "extraction_mode": "full",
-            "file_size": file.stat().st_size
+            "lines_of_code": len(content.split('\n')),
+            "doc_type": "source_code",
+            "content_type": "code",
         })
         
         return [Document(text=content, metadata=metadata)]
     
-    def _extract_comments_only(
-        self, 
-        file: Path, 
+    def _generate_conceptual_summary(
+        self,
+        content: str,
+        file: Path,
         language: str,
-        extra_info: dict[str, Any] | None = None
+        extra_info: Optional[dict[str, Any]] = None
     ) -> List[Document]:
         """
-        Extracts only comments from the code file.
+        Generates a high-level conceptual summary using Qwen2.5-Coder.
+        
+        The summary focuses on:
+        - Overall purpose and system-level functionality
+        - Main processes and workflows
+        - Key components and their interactions
+        - Data flow and control flow at abstract level
+        - System behaviors observable from external perspective
         
         Args:
+            content: File content as string
             file: Path to the code file
             language: Programming language
             extra_info: Additional metadata
             
         Returns:
-            List containing a single Document with extracted comments
+            List containing Document with summary
         """
-        with open(file, 'r', encoding='utf-8', errors='ignore') as f:
-            content = f.read()
         
-        # Language-specific extraction
-        if language == "python":
-            comments = self._extract_python_comments(content)
-        elif language in ["javascript", "c", "cpp", "csharp"]:
-            comments = self._extract_c_style_comments(content)
-        else:
-            comments = self._extract_generic_comments(content)
-        
-        # Assemble metadata
+        # Prepare the prompt for Qwen2.5-Coder
+        prompt = self._build_summarization_prompt(content, language, file.name)
+        try:
+            # Call Ollama with Qwen2.5-Coder
+            response = self.code_llm.complete(prompt)
+            code_explanation = response.text.strip()
+                
+        except Exception as e:
+            return []
+
+        # Build metadata
         metadata = extra_info or {}
         metadata.update({
             "file_name": file.name,
-            "file_path": str(file),
             "file_type": language,
-            "extraction_mode": "comments_only",
-            "file_size": file.stat().st_size
+            "lines_of_code": len(content.split('\n')),
         })
-        return [Document(text=comments, metadata=metadata)]
+
+        summary_metadata = metadata.copy()
+        summary_metadata.update({
+            "doc_type": "summary_of_code",
+            "content_type": "explanation",
+        })
+        summary_doc = Document(
+            text=code_explanation,
+            metadata=summary_metadata,
+            ref_doc_id=file.name if isinstance(file, Path) else str(file),
+        )
+
+        return [summary_doc]
     
-    def _extract_python_comments(self, content: str) -> str:
-        """
-        Extracts Python comments and docstrings.
-        
-        Args:
-            content: File content as string
-            file: Path to the file
-            
-        Returns:
-            Formatted string containing all extracted comments
-        """
-        comments = []
-        
-        try:
-            # AST-based extraction for docstrings
-            tree = ast.parse(content)
-            
-            # Module docstring
-            module_doc = ast.get_docstring(tree)
-            if module_doc:
-                comments.append(f"\nModule\n{module_doc}\n")
-            
-            # Iterate through functions and classes
-            for node in ast.walk(tree):
-                if isinstance(node, ast.FunctionDef):
-                    docstring = ast.get_docstring(node)
-                    if docstring:
-                        comments.append(f"\nFunction {node.name}\n{docstring}\n")
-                
-                elif isinstance(node, ast.ClassDef):
-                    docstring = ast.get_docstring(node)
-                    if docstring:
-                        comments.append(f"\nClass {node.name}\n{docstring}\n")
-                        
-                        # Class methods
-                        for item in node.body:
-                            if isinstance(item, ast.FunctionDef):
-                                method_doc = ast.get_docstring(item)
-                                if method_doc:
-                                    comments.append(
-                                        f"\nMethod: {node.name}.{item.name}\n  {method_doc}\n"
-                                    )
-        
-        except SyntaxError as e:
-            comments.append(f"\n# Warning: Could not parse file completely: {e}\n")
-        
-        # Inline comments using regex
-        inline_comments = re.findall(r'^\s*#\s*(.+)$', content, re.MULTILINE)
-        if inline_comments:
-            for i, comment in enumerate(inline_comments, 1):
-                # Filter empty or separator comments
-                if comment.strip() and not all(c in '#=-_*' for c in comment.strip()):
-                    comments.append(f"{i}. {comment}\n")
-        
-        result = "\n".join(comments)
-        return result if len(comments) > 1 else "# No comments found in this file"
-    
-    def _extract_c_style_comments(
-        self, 
-        content: str
+    def _build_summarization_prompt(
+        self,
+        code: str,
+        language: str,
+        file_name: str
     ) -> str:
         """
-        Extracts C-style comments (// and /* */) for C, C++, C#, JavaScript.
+        Builds the prompt for Qwen2.5-Coder to generate conceptual summary.
         
-        Args:
-            content: File content as string
-            file: Path to the file
-            language: Programming language
-            
-        Returns:
-            Formatted string containing all extracted comments
+        Focus: System-level understanding, not code-level details.
         """
-        comments = []
+
+        # Truncate code if too long to fit in context
+        max_code_length = 10000  # Reasonable limit
+        if len(code) > max_code_length:
+            code = code[:max_code_length] + f"\n\n[... truncated, total lines: {len(code.split(chr(10)))} ...]"
         
-        # Multi-line comments /** ... */ and /* ... */
-        # Regex for Javadoc/JSDoc style
-        javadoc_pattern = r'/\*\*\s*(.*?)\*/'
-        javadoc_comments = re.findall(javadoc_pattern, content, re.DOTALL)
-        
-        if javadoc_comments:
-            for i, comment in enumerate(javadoc_comments, 1):
-                # Clean up: remove asterisks at line beginnings
-                cleaned = re.sub(r'^\s*\*\s?', '', comment, flags=re.MULTILINE)
-                comments.append(f"{i}. {cleaned.strip()}\n\n")
-        
-        # Regular multi-line comments /* ... */
-        multiline_pattern = r'/\*(?!\*)\s*(.*?)\*/'
-        multiline_comments = re.findall(multiline_pattern, content, re.DOTALL)
-        
-        if multiline_comments:
-            for i, comment in enumerate(multiline_comments, 1):
-                cleaned = re.sub(r'^\s*\*\s?', '', comment, flags=re.MULTILINE)
-                comments.append(f"{i}. {cleaned.strip()}\n\n")
-        
-        # Single-line comments //
-        singleline_pattern = r'//\s*(.+)$'
-        singleline_comments = re.findall(singleline_pattern, content, re.MULTILINE)
-        
-        if singleline_comments:
-            for i, comment in enumerate(singleline_comments, 1):
-                # Filter separator lines like //========
-                if not all(c in '/-=_*' for c in comment.strip()):
-                    comments.append(f"{i}. {comment.strip()}\n")
-        
-        result = "\n".join(comments)
-        return result if len(comments) > 1 else "// No comments found in this file"
-    
-    def _extract_generic_comments(self, content: str) -> str:
-        """
-        Fallback: Generic comment extraction for unknown languages.
-        
-        Args:
-            content: File content as string
-            file: Path to the file
-            
-        Returns:
-            Formatted string containing all extracted comments
-        """
-        comments = []
-        
-        # Try all common comment styles
-        patterns = [
-            (r'#\s*(.+)$', '#'),           # Python, Bash, Ruby
-            (r'//\s*(.+)$', '//'),         # C-style single-line
-            (r'/\*\*(.*?)\*/', '/** */'),  # Javadoc
-            (r'/\*(?!\*)(.*?)\*/', '/* */'), # C-style multi-line
-        ]
-        
-        for pattern, style in patterns:
-            if style.startswith('/*'):
-                matches = re.findall(pattern, content, re.DOTALL)
-            else:
-                matches = re.findall(pattern, content, re.MULTILINE)
-            
-            if matches:
-                for match in matches:
-                    cleaned = match.strip()
-                    if cleaned:
-                        comments.append(f"{cleaned}\n")
-        
-        result = "\n".join(comments)
-        return result if len(comments) > 1 else "# No comments found in this file"
+        prompt = f"""Analyze this code file. Be precise and factual. Only describe what you see in the code.
+
+File: {file_name}
+Language: {language}
+```{language}
+{code}
+```
+
+---
+
+Write your analysis in exactly this format:
+
+## FILE OVERVIEW
+What this file does in 2-3 sentences. What is its role in the project.
+
+## IMPORTS AND DEPENDENCIES
+List each import and what it is used for.
+
+## FUNCTIONS AND METHODS
+For EVERY function/method in this file, write:
+
+### function_name(parameters)
+- **Purpose:** What it does in one sentence.
+- **Parameters:** List each parameter and its type/meaning.
+- **Returns:** What it returns.
+- **Logic:** Step-by-step what happens inside (3-5 bullet points).
+- **Calls:** Other functions it calls.
+- **Side effects:** Any file writes, API calls, state changes, prints.
+
+## CLASSES
+For each class:
+- **Name and purpose**
+- **Attributes** with types
+- **Methods** (described as above)
+
+## CONSTANTS AND CONFIGURATION
+List all constants, config values, and global variables with their purpose.
+
+## DATA FLOW
+How data moves through the file: input -> processing -> output. One short paragraph.
+
+---
+
+Rules:
+- Describe EVERY function, no exceptions.
+- Be short and direct per item.
+- Do not invent things not in the code.
+- Do not explain general programming concepts.
+- Use the exact function and variable names from the code."""
+
+        return prompt
