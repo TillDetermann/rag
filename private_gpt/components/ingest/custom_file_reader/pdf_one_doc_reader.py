@@ -62,6 +62,7 @@ class OneDocumentPDFReader(BaseReader):
                 "total_pages": len(page_documents),
                 "file_name": file.name if isinstance(file, Path) else str(file),
                 "source_type": "pdf",
+                "doc_type": "text"
             },
             ref_doc_id=file.name if isinstance(file, Path) else str(file),
         )

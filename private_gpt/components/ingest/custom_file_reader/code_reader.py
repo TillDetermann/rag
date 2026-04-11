@@ -33,7 +33,7 @@ class CodeReader(BaseReader):
     
     Supports multiple ingestion modes:
     - full: Returns complete code
-    - summarized: LLM generates high-level conceptual summary (RECOMMENDED)
+    - summarized: LLM generates high-level conceptual summary
     """
     
     LANGUAGE_MAP = {
@@ -47,18 +47,11 @@ class CodeReader(BaseReader):
     }
     
     def __init__(
-        self,
-        mode: str = CodeIngestionMode.ALL,
+        self
     ):
         """
         Initialize the Enhanced Code Reader.
-        
-        Args:
-            mode: Ingestion mode (full or summarized)
-            ollama_model: Model to use for summarization (default: qwen2.5-coder:3b)
-            ollama_base_url: Base URL for Ollama service
         """
-        self.mode = mode
         self.settings = settings()
         self.code_llm = Ollama(
             model=self.settings.ollama.code_llm,
@@ -89,13 +82,13 @@ class CodeReader(BaseReader):
         with open(file, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
         
-        if self.mode == CodeIngestionMode.SUMMARIZED:
+        if self.settings.ollama.code_summary_mode == CodeIngestionMode.SUMMARIZED:
             return self._generate_conceptual_summary(
                 content, file, language, extra_info
             )
-        elif self.mode == CodeIngestionMode.CODE:
+        elif self.settings.ollama.code_summary_mode == CodeIngestionMode.CODE:
             return self._read_code(content, file, language, extra_info)
-        elif self.mode == CodeIngestionMode.ALL:
+        elif self.settings.ollama.code_summary_mode == CodeIngestionMode.ALL:
             return self._generate_conceptual_summary(
                 content, file, language, extra_info
             ) + self._read_code(content, file, language, extra_info)
@@ -119,6 +112,7 @@ class CodeReader(BaseReader):
         Returns:
             List containing a single Document with full code
         """
+        logger.info("read full code and turn into document.")
         metadata = extra_info or {}
         metadata.update({
             "file_name": file.name,
@@ -156,6 +150,8 @@ class CodeReader(BaseReader):
         Returns:
             List containing Document with summary
         """
+
+        logger.info("summarize code and transfer into document")
         
         # Prepare the prompt for Qwen2.5-Coder
         prompt = self._build_summarization_prompt(content, language, file.name)

@@ -197,24 +197,6 @@ class ChatService:
         )
 
         sources = [Chunk.from_node(node) for node in streaming_response.source_nodes]
-
-        # Zeige Sources schön formatiert an
-        print("\n" + "="*80)
-        print("📚 RETRIEVED SOURCES")
-        print("="*80 + "\n")
-
-        for i, chunk in enumerate(sources, 1):
-            print(f"{'─'*80}")
-            print(f"Source {i}/{len(sources)}")
-            print(f"{'─'*80}")
-            print(f"📄 File: {chunk.document.doc_metadata.get('file_name', 'unknown')}")
-            
-            print(f"⭐ Score: {chunk.score:.4f}")
-            print(f"\n💬 Text Preview:")
-            print(f"{chunk.text[:300]}{'...' if len(chunk.text) > 300 else ''}")
-            print()
-
-        print("="*80 + "\n")
         
         completion_gen = CompletionGen(
             response=streaming_response.response_gen, sources=sources

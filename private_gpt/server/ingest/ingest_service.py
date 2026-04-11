@@ -11,10 +11,8 @@ from private_gpt.components.ingest.ingest_component import get_ingestion_compone
 from private_gpt.components.ingest.ingest_strategy import IngestionStrategyRegistry
 from private_gpt.components.ingest.strategies.code_strategy import CodeStrategy
 from private_gpt.components.ingest.strategies.document_strategy import DocumentStrategy
+from private_gpt.components.ingest.strategies.img_strategy import ImageStrategy
 from private_gpt.components.llm.llm_component import LLMComponent
-from private_gpt.components.metadata_retrivial.metadata_retrivial_component import MetadataRetrivialComponent
-from private_gpt.components.metadata_retrivial.metadata_retrivial_parser import LLMMetadataTransformation
-from private_gpt.components.node_store.context_retrivial_parser import LLMSummaryTransformation
 from private_gpt.components.node_store.node_store_component import NodeStoreComponent
 from private_gpt.components.vector_store.vector_store_component import (
     VectorStoreComponent,
@@ -55,6 +53,14 @@ class IngestService:
         )
         self.strategy_registry.register(
             CodeStrategy(
+                settings=self.settings,
+                embed_model=embedding_component.embedding_model,
+                storage_context=self.storage_context
+            ),
+        )
+
+        self.strategy_registry.register(
+            ImageStrategy(
                 settings=self.settings
             ),
         )

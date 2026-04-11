@@ -267,7 +267,6 @@ class OpenAISettings(BaseModel):
         description="OpenAI embedding Model to use. Example: 'text-embedding-3-large'.",
     )
 
-
 class GeminiSettings(BaseModel):
     api_key: str
     model: str = Field(
@@ -305,6 +304,10 @@ class OllamaSettings(BaseModel):
         "qwen2.5-coder:3b",
         description="Model to use for code. Example: 'qwen2.5-coder:3b'.",
     )
+    code_summary_mode:str = Field(
+        "all",
+        description="Which mode should be used when reading code.",
+    ) 
     vision_llm: str = Field(
         "qwen3-vl:4b",
         description="Model to use for images. Example: 'qwen3-vl:4b'.",

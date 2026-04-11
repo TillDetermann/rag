@@ -1,30 +1,20 @@
 from llama_index.core.node_parser import SentenceSplitter, SemanticSplitterNodeParser
 from llama_index.core.schema import TransformComponent
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.llms.ollama import Ollama
 from llama_index.core.readers.base import BaseReader
 
-from llama_index.core.embeddings import BaseEmbedding
-from private_gpt.components.ingest.custom_file_reader.pdf_one_doc_reader import OneDocumentPDFReader
+from private_gpt.components.ingest.custom_file_reader.img_reader import ImageReader
 from private_gpt.components.ingest.ingest_strategy import IngestionStrategy
 from private_gpt.components.metadata_retrivial.metadata_retrivial_component import MetadataRetrivialComponent
 from private_gpt.components.metadata_retrivial.metadata_retrivial_parser import LLMMetadataTransformation
 from private_gpt.components.node_store.add_summary_parser import AddSummaryParser
 from private_gpt.settings.settings import Settings
 
-
-class DocumentStrategy(IngestionStrategy):
-    """Ingestion strategy for natural-language documents (PDF, DOCX, TXT, MD).
-
-    Pipeline:
-        1. Semantic splitting (HuggingFace embedding similarity)
-        2. Size limiting (SentenceSplitter as guardrail)
-        3. Contextual summary per chunk (LLM)
-        4. Metadata enrichment (LLM)
-        5. Final embedding for vector store
+class ImageStrategy(IngestionStrategy):
+    """Ingestion strategy for cad documents.
     """
 
-    EXTENSIONS: set[str] = {".pdf", ".docx", ".txt", ".md", ".rst", ".html", ".htm"}
+    EXTENSIONS: set[str] = {".png", ".jpg", "jpeg"}
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -35,6 +25,7 @@ class DocumentStrategy(IngestionStrategy):
             device="cpu",
             cache_folder="./models/embedding_cache",
         )
+    
         self.semantic_splitter = SemanticSplitterNodeParser.from_defaults(
             buffer_size=1,
             breakpoint_percentile_threshold=95,
@@ -56,13 +47,12 @@ class DocumentStrategy(IngestionStrategy):
             metadata_retrivial_component=metadata_component,
             max_metadata=self.settings.metadata_generation.max_entry_per_category,
         )
-
     def supported_extensions(self) -> set[str]:
         return self.EXTENSIONS
 
     def get_transformations_per_doc_type(self, extension: str | None = None) -> dict[str, list[TransformComponent]]:
         return {
-            "textt": [
+            "image-summary": [
             self.semantic_splitter,
             self.size_limiter,
             self.summary_transform,
@@ -71,4 +61,4 @@ class DocumentStrategy(IngestionStrategy):
         }
     
     def get_reader(self)-> BaseReader:
-        return OneDocumentPDFReader()
+        return ImageReader()

@@ -34,14 +34,14 @@ ui:
     - Hardware integration (motors, sensors, controllers)
     - Debugging techniques and error analysis
     - Performance optimization for embedded systems
-    
+
     Always answer based on the provided codebase context and your expertise.
     When analyzing code, explain:
     1. What each component does and why
     2. How different modules interact with each other
     3. Potential issues or anti-patterns
     4. Suggested improvements or fixes
-    
+
     If you're unsure or the information isn't in the context, clearly state that.
     Provide code examples and practical recommendations when relevant.
 
@@ -53,52 +53,52 @@ ui:
     - Control algorithms and motion logic
     - Error conditions and edge cases
     - Integration between different modules and systems
-    
+
     When answering, focus on:
     1. Understanding the current implementation in context
     2. Identifying potential bugs, inefficiencies, or design issues
     3. Tracing data flow through the system
     4. Explaining error messages and their root causes
-    
+
     If the answer is clearly in the provided codebase, provide a detailed technical response.
     Explain:
     - What the code does
     - How it connects to other parts
     - Potential issues found
-    
+
     If the information is not in the provided codebase context, explicitly state:
     "This information is not available in the provided documentation."
 
   default_summarization_system_prompt: >
     Provide a comprehensive technical summary of the RobotC project codebase.
     The summary should cover:
-    
+
     **System Architecture:**
     - Main components and their responsibilities
     - How different modules interact
     - Data flow through the system
-    
+
     **Hardware Configuration:**
     - Connected devices (motors, sensors, controllers)
     - Pin/port assignments
     - Expected inputs and outputs
-    
+
     **Key Functionality:**
     - Primary behaviors and control flows
     - State machines or decision logic
     - Critical functions and their purposes
-    
+
     **Current Issues & Observations:**
     - Potential bugs or error-prone areas
     - Performance bottlenecks
     - Missing error handling
     - Code quality concerns
-    
+
     **Integration Points:**
     - How components communicate
     - Dependencies between modules
     - External interfaces
-    
+
     Focus on technical accuracy and practical understanding of how the robot system works.
     Organize the summary logically with clear sections for different topics.
     Highlight critical functionality and potential failure points.
@@ -114,7 +114,7 @@ llm:
   context_window: 3900
   # Select your tokenizer. Llama-index tokenizer is the default.
   # tokenizer: meta-llama/Meta-Llama-3.1-8B-Instruct
-  temperature: 0.1      # The temperature of the model. Increasing the temperature will make the model answer more creatively. A value of 0.1 would be more factual. (Default: 0.1)
+  temperature: 0.1 # The temperature of the model. Increasing the temperature will make the model answer more creatively. A value of 0.1 would be more factual. (Default: 0.1)
 
 rag:
   similarity_top_k: 10
@@ -145,19 +145,19 @@ summarize:
   use_async: true
 
 clickhouse:
-    host: localhost
-    port: 8443
-    username: admin
-    password: clickhouse
-    database: embeddings
+  host: localhost
+  port: 8443
+  username: admin
+  password: clickhouse
+  database: embeddings
 
 llamacpp:
   llm_hf_repo_id: lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF
   llm_hf_model_file: Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
-  tfs_z: 1.0            # Tail free sampling is used to reduce the impact of less probable tokens from the output. A higher value (e.g., 2.0) will reduce the impact more, while a value of 1.0 disables this setting
-  top_k: 40             # Reduces the probability of generating nonsense. A higher value (e.g. 100) will give more diverse answers, while a lower value (e.g. 10) will be more conservative. (Default: 40)
-  top_p: 1.0            # Works together with top-k. A higher value (e.g., 0.95) will lead to more diverse text, while a lower value (e.g., 0.5) will generate more focused and conservative text. (Default: 0.9)
-  repeat_penalty: 1.1   # Sets how strongly to penalize repetitions. A higher value (e.g., 1.5) will penalize repetitions more strongly, while a lower value (e.g., 0.9) will be more lenient. (Default: 1.1)
+  tfs_z: 1.0 # Tail free sampling is used to reduce the impact of less probable tokens from the output. A higher value (e.g., 2.0) will reduce the impact more, while a value of 1.0 disables this setting
+  top_k: 40 # Reduces the probability of generating nonsense. A higher value (e.g. 100) will give more diverse answers, while a lower value (e.g. 10) will be more conservative. (Default: 40)
+  top_p: 1.0 # Works together with top-k. A higher value (e.g., 0.95) will lead to more diverse text, while a lower value (e.g., 0.5) will generate more focused and conservative text. (Default: 0.9)
+  repeat_penalty: 1.1 # Sets how strongly to penalize repetitions. A higher value (e.g., 1.5) will penalize repetitions more strongly, while a lower value (e.g., 0.9) will be more lenient. (Default: 1.1)
 
 embedding:
   # Should be matching the value above in most cases
@@ -208,6 +208,7 @@ ollama:
   embedding_model: nomic-embed-text
   worker_llm: qwen2.5:0.5b
   code_llm: qwen2.5-coder:3b
+  code_summary_mode: all # can be: all, code, summarized
   vision_llm: qwen3-vl:4b
   api_base: http://localhost:11434
   embedding_api_base: http://localhost:11434

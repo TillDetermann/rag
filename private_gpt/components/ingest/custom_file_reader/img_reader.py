@@ -13,7 +13,7 @@ from llama_index.core.schema import ImageDocument
 logger = logging.getLogger(__name__)
 
 
-class IMGReader(BaseReader):
+class ImageReader(BaseReader):
      def __init__(
           self
      ) -> None:
@@ -67,8 +67,16 @@ Be precise and technical. Use standard engineering terminology. Do not speculate
           if not description.strip():
                return []
 
-          metadata = {"file_name": file.name, "file_path": str(file.resolve())}
+          description_document = Document(
+               text=description,
+               metadata={
+                    "file_name": file.name,
+                    "file_path": str(file.resolve()),
+                    "source_type": "image",
+                    "doc_type": "image-summary",
+               },
+               ref_doc_id=file.name if isinstance(file, Path) else str(file),
+          )
           if extra_info:
-               metadata.update(extra_info)
-
-          return [Document(text=description, metadata=metadata)]
+               description_document.metadata.update(extra_info)
+          return [description_document]
