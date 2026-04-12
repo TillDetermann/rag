@@ -520,16 +520,8 @@ class PrivateGptUi:
 
                         # Mapping of 'llm_mode' to corresponding model labels
                         model_mapping = {
-                            "llamacpp": config_settings.llamacpp.llm_hf_model_file,
-                            "openai": config_settings.openai.model,
-                            "openailike": config_settings.openai.model,
-                            "azopenai": config_settings.azopenai.llm_model,
-                            "sagemaker": config_settings.sagemaker.llm_endpoint_name,
-                            "mock": llm_mode,
                             "ollama": config_settings.ollama.llm_model,
-                            "gemini": config_settings.gemini.model,
                         }
-
                         if llm_mode not in model_mapping:
                             print(f"Invalid 'llm mode': {llm_mode}")
                             return None

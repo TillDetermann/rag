@@ -5,7 +5,6 @@ from llama_index.llms.ollama import Ollama
 from llama_index.core.bridge.pydantic import PrivateAttr
 
 from private_gpt.settings.settings import settings
-from private_gpt.settings.settings import Settings
 
 import logging
 
@@ -39,7 +38,7 @@ class AddSummaryParser(NodeParser):
             model=_settings.ollama.worker_llm,
             api_base=_settings.ollama.api_base,
             request_timeout=_settings.ollama.request_timeout,
-            temperature=0.3,
+            temperature=0.3
         )
         self._add_summary = add_summary
         self._summary_prompt = "Summarize the following text in EXACTLY 3 sentences. Do not write more than 3 sentences:\n\n {text}\n\nSummary:"
@@ -115,12 +114,9 @@ class AddSummaryParser(NodeParser):
                 metadata={
                     **node.metadata,
                     "has_summary": bool(summary),
-                    "original_length": len(original_text),
-                    "enhanced_length": len(enhanced_text),
+                    "used_llm_for_summary": self._summary_llm.model
                 },
                 excluded_llm_metadata_keys=[
-                    "original_length", 
-                    "enhanced_length",
                     *(node.excluded_llm_metadata_keys or [])
                 ],
                 excluded_embed_metadata_keys=[
@@ -134,8 +130,6 @@ class AddSummaryParser(NodeParser):
             enhanced_node.text = enhanced_text
             if hasattr(enhanced_node, 'metadata'):
                 enhanced_node.metadata["has_summary"] = bool(summary)
-                enhanced_node.metadata["summary"] = summary
-                enhanced_node.metadata["summary_format"] = self.summary_format
         
         return enhanced_node
     

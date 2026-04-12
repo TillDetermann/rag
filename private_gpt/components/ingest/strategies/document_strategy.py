@@ -9,7 +9,7 @@ from private_gpt.components.ingest.custom_file_reader.pdf_one_doc_reader import 
 from private_gpt.components.ingest.ingest_strategy import IngestionStrategy
 from private_gpt.components.metadata_retrivial.metadata_retrivial_component import MetadataRetrivialComponent
 from private_gpt.components.metadata_retrivial.metadata_retrivial_parser import LLMMetadataTransformation
-from private_gpt.components.node_store.add_summary_parser import AddSummaryParser
+from private_gpt.components.ingest.custom_node_parser.add_summary_parser import AddSummaryParser
 from private_gpt.settings.settings import Settings
 
 
@@ -51,22 +51,21 @@ class DocumentStrategy(IngestionStrategy):
         self.summary_transform = AddSummaryParser()
 
         # --- 4. Metadata Enrichment ---
-        metadata_component = MetadataRetrivialComponent(settings=self.settings)
-        self.metadata_transform = LLMMetadataTransformation(
-            metadata_retrivial_component=metadata_component,
-            max_metadata=self.settings.metadata_generation.max_entry_per_category,
-        )
+        # metadata_component = MetadataRetrivialComponent(settings=self.settings)
+        # self.metadata_transform = LLMMetadataTransformation(
+        #     metadata_retrivial_component=metadata_component,
+        #     max_metadata=self.settings.metadata_generation.max_entry_per_category,
+        # )
 
     def supported_extensions(self) -> set[str]:
         return self.EXTENSIONS
 
     def get_transformations_per_doc_type(self, extension: str | None = None) -> dict[str, list[TransformComponent]]:
         return {
-            "textt": [
+            "text": [
             self.semantic_splitter,
             self.size_limiter,
-            self.summary_transform,
-            self.metadata_transform
+            self.summary_transform
             ],
         }
     

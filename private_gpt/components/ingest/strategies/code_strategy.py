@@ -2,16 +2,14 @@ from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.schema import TransformComponent
 from llama_index.core.readers.base import BaseReader
 
-from private_gpt.components.ingest.custom_file_reader.code_reader import CodeReader
 from private_gpt.components.ingest.custom_splitter.function_splitter import FunctionSplitter
 from private_gpt.components.ingest.ingest_strategy import IngestionStrategy
-from private_gpt.components.node_store.add_summary_parser import AddSummaryParser
-from private_gpt.components.node_store.code_enrichment_parser import CodeEnrichmentParser
+from private_gpt.components.ingest.custom_node_parser.add_summary_parser import AddSummaryParser
+from private_gpt.components.ingest.custom_node_parser.code_enrichment_parser import CodeEnrichmentParser
 from private_gpt.settings.settings import Settings
 from llama_index.core.embeddings.utils import EmbedType
 from llama_index.core.storage import StorageContext
 from llama_index.readers.file import FlatReader
-
 
 
 class CodeStrategy(IngestionStrategy):
@@ -47,7 +45,7 @@ class CodeStrategy(IngestionStrategy):
         self.summary_transform = AddSummaryParser()
 
         self.size_limiter = SentenceSplitter(
-            chunk_size=20000,
+            chunk_size=2000,
             chunk_overlap=50,
         )
 

@@ -7,7 +7,7 @@ from private_gpt.components.ingest.custom_file_reader.img_reader import ImageRea
 from private_gpt.components.ingest.ingest_strategy import IngestionStrategy
 from private_gpt.components.metadata_retrivial.metadata_retrivial_component import MetadataRetrivialComponent
 from private_gpt.components.metadata_retrivial.metadata_retrivial_parser import LLMMetadataTransformation
-from private_gpt.components.node_store.add_summary_parser import AddSummaryParser
+from private_gpt.components.ingest.custom_node_parser.add_summary_parser import AddSummaryParser
 from private_gpt.settings.settings import Settings
 
 class ImageStrategy(IngestionStrategy):

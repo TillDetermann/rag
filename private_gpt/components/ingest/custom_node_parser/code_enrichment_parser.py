@@ -50,7 +50,7 @@ class CodeEnrichmentParser(NodeParser):
             model=_settings.ollama.code_llm,
             api_base=_settings.ollama.api_base,
             request_timeout=_settings.ollama.request_timeout,
-            temperature=0.3,
+            temperature=0.3
         )
 
         self._larger_code_llm = Ollama(
@@ -206,7 +206,7 @@ class CodeEnrichmentParser(NodeParser):
             return ""
     # ------------------------------------------------------------------ #
     #  Orchestration: combine steps 1-3 per node
-    # ---------------------------------^------------------------------- #
+    # ----------------------------------------------------------------- #
 
     def _enrich_code_node(self, node: BaseNode) -> BaseNode:
         """Enrich a single code node through the full pipeline."""
@@ -225,25 +225,27 @@ class CodeEnrichmentParser(NodeParser):
         # --- Step 3: large LLM ---
         enriched_description = self.call_large_code_llm(original_code, retrieved_chunks_text)
 
-        # --- Build enriched node ---
-        enriched_text = f"{enriched_description}\n\n{original_code}"
-
         if isinstance(node, TextNode):
             enriched_node = TextNode(
-                text=enriched_text,
+                text=enriched_description,
                 metadata={
                     **node.metadata,
-                    "has_code_enrichment": True,
+                    "code": original_code,
+                    "used_llm_for_code_to_text": self._small_code_llm.model, 
+                    "used_llm_for_final_describition": self._larger_code_llm.model
                 },
                 excluded_embed_metadata_keys=[
                     *(node.excluded_embed_metadata_keys or []),
+                    "code"
                 ],
                 relationships=node.relationships,
             )
         else:
             enriched_node = node
-            enriched_node.text = enriched_text  # type: ignore[attr-defined]
+            enriched_node.text = enriched_description
             if hasattr(enriched_node, "metadata"):
-                enriched_node.metadata["has_code_enrichment"] = True
+                enriched_node.metadata["code"] = original_code
+            if hasattr(enriched_node, "excluded_embed_metadata_keys"):
+                enriched_node.excluded_embed_metadata_keys.push("code")
 
         return enriched_node

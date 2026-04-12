@@ -120,7 +120,8 @@ To csv: https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfd
   - code reader löschen
   - große llm anbinden
 - Ernsthaft über agent nachdenken, weil für allem diese zurückführende ist sehr gut für trasnsitivität
-- Profiles löschen und auch optionen -> light weight machen
+- Gedanken machen was man mit metadaten alles machen kann
+- AutoTokinizer aktuell, geht da einfach ein beserer?
 
 ## 6. Befehle
 

@@ -107,14 +107,8 @@ class DataSettings(BaseModel):
 
 class LLMSettings(BaseModel):
     mode: Literal[
-        "llamacpp",
-        "openai",
-        "openailike",
-        "azopenai",
-        "sagemaker",
-        "mock",
         "ollama",
-        "gemini",
+
     ]
     max_new_tokens: int = Field(
         256,
@@ -136,75 +130,19 @@ class LLMSettings(BaseModel):
         0.1,
         description="The temperature of the model. Increasing the temperature will make the model answer more creatively. A value of 0.1 would be more factual.",
     )
-    prompt_style: Literal["default", "llama2", "llama3", "tag", "mistral", "chatml"] = (
-        Field(
-            "llama2",
-            description=(
-                "The prompt style to use for the chat engine. "
-                "If `default` - use the default prompt style from the llama_index. It should look like `role: message`.\n"
-                "If `llama2` - use the llama2 prompt style from the llama_index. Based on `<s>`, `[INST]` and `<<SYS>>`.\n"
-                "If `llama3` - use the llama3 prompt style from the llama_index."
-                "If `tag` - use the `tag` prompt style. It should look like `<|role|>: message`. \n"
-                "If `mistral` - use the `mistral prompt style. It shoudl look like <s>[INST] {System Prompt} [/INST]</s>[INST] { UserInstructions } [/INST]"
-                "`llama2` is the historic behaviour. `default` might work better with your custom models."
-            ),
-        )
-    )
 
 
 class VectorstoreSettings(BaseModel):
-    database: Literal["chroma", "qdrant", "postgres", "clickhouse", "milvus"]
+    database: Literal["postgres"]
 
 
 class NodeStoreSettings(BaseModel):
-    database: Literal["simple", "postgres"]
-
-
-class LlamaCPPSettings(BaseModel):
-    llm_hf_repo_id: str
-    llm_hf_model_file: str
-    tfs_z: float = Field(
-        1.0,
-        description="Tail free sampling is used to reduce the impact of less probable tokens from the output. A higher value (e.g., 2.0) will reduce the impact more, while a value of 1.0 disables this setting.",
-    )
-    top_k: int = Field(
-        40,
-        description="Reduces the probability of generating nonsense. A higher value (e.g. 100) will give more diverse answers, while a lower value (e.g. 10) will be more conservative. (Default: 40)",
-    )
-    top_p: float = Field(
-        0.9,
-        description="Works together with top-k. A higher value (e.g., 0.95) will lead to more diverse text, while a lower value (e.g., 0.5) will generate more focused and conservative text. (Default: 0.9)",
-    )
-    repeat_penalty: float = Field(
-        1.1,
-        description="Sets how strongly to penalize repetitions. A higher value (e.g., 1.5) will penalize repetitions more strongly, while a lower value (e.g., 0.9) will be more lenient. (Default: 1.1)",
-    )
-
-
-class HuggingFaceSettings(BaseModel):
-    embedding_hf_model_name: str = Field(
-        description="Name of the HuggingFace model to use for embeddings"
-    )
-    access_token: str = Field(
-        None,
-        description="Huggingface access token, required to download some models",
-    )
-    trust_remote_code: bool = Field(
-        False,
-        description="If set to True, the code from the remote model will be trusted and executed.",
-    )
+    database: Literal["postgres"]
 
 
 class EmbeddingSettings(BaseModel):
     mode: Literal[
-        "huggingface",
-        "openai",
-        "azopenai",
-        "sagemaker",
         "ollama",
-        "mock",
-        "gemini",
-        "mistralai",
     ]
     ingest_mode: Literal["simple", "batch", "parallel", "pipeline"] = Field(
         "simple",
@@ -235,47 +173,6 @@ class EmbeddingSettings(BaseModel):
     embed_dim: int = Field(
         384,
         description="The dimension of the embeddings stored in the Postgres database",
-    )
-
-
-class SagemakerSettings(BaseModel):
-    llm_endpoint_name: str
-    embedding_endpoint_name: str
-
-
-class OpenAISettings(BaseModel):
-    api_base: str = Field(
-        None,
-        description="Base URL of OpenAI API. Example: 'https://api.openai.com/v1'.",
-    )
-    api_key: str
-    model: str = Field(
-        "gpt-3.5-turbo",
-        description="OpenAI Model to use. Example: 'gpt-4'.",
-    )
-    request_timeout: float = Field(
-        120.0,
-        description="Time elapsed until openailike server times out the request. Default is 120s. Format is float. ",
-    )
-    embedding_api_base: str = Field(
-        None,
-        description="Base URL of OpenAI API. Example: 'https://api.openai.com/v1'.",
-    )
-    embedding_api_key: str
-    embedding_model: str = Field(
-        "text-embedding-ada-002",
-        description="OpenAI embedding Model to use. Example: 'text-embedding-3-large'.",
-    )
-
-class GeminiSettings(BaseModel):
-    api_key: str
-    model: str = Field(
-        "models/gemini-pro",
-        description="Google Model to use. Example: 'models/gemini-pro'.",
-    )
-    embedding_model: str = Field(
-        "models/embedding-001",
-        description="Google Embedding Model to use. Example: 'models/embedding-001'.",
     )
 
 
@@ -350,24 +247,6 @@ class OllamaSettings(BaseModel):
     )
 
 
-class AzureOpenAISettings(BaseModel):
-    api_key: str
-    azure_endpoint: str
-    api_version: str = Field(
-        "2023_05_15",
-        description="The API version to use for this operation. This follows the YYYY-MM-DD format.",
-    )
-    embedding_deployment_name: str
-    embedding_model: str = Field(
-        "text-embedding-ada-002",
-        description="OpenAI Model to use. Example: 'text-embedding-ada-002'.",
-    )
-    llm_deployment_name: str
-    llm_model: str = Field(
-        "gpt-35-turbo",
-        description="OpenAI Model to use. Example: 'gpt-4'.",
-    )
-
 
 class UISettings(BaseModel):
     enabled: bool
@@ -429,77 +308,6 @@ class SummarizeSettings(BaseModel):
     )
 
 
-class ClickHouseSettings(BaseModel):
-    host: str = Field(
-        "localhost",
-        description="The server hosting the ClickHouse database",
-    )
-    port: int = Field(
-        8443,
-        description="The port on which the ClickHouse database is accessible",
-    )
-    username: str = Field(
-        "default",
-        description="The username to use to connect to the ClickHouse database",
-    )
-    password: str = Field(
-        "",
-        description="The password to use to connect to the ClickHouse database",
-    )
-    database: str = Field(
-        "__default__",
-        description="The default database to use for connections",
-    )
-    secure: bool | str = Field(
-        False,
-        description="Use https/TLS for secure connection to the server",
-    )
-    interface: str | None = Field(
-        None,
-        description="Must be either 'http' or 'https'. Determines the protocol to use for the connection",
-    )
-    settings: dict[str, Any] | None = Field(
-        None,
-        description="Specific ClickHouse server settings to be used with the session",
-    )
-    connect_timeout: int | None = Field(
-        None,
-        description="Timeout in seconds for establishing a connection",
-    )
-    send_receive_timeout: int | None = Field(
-        None,
-        description="Read timeout in seconds for http connection",
-    )
-    verify: bool | None = Field(
-        None,
-        description="Verify the server certificate in secure/https mode",
-    )
-    ca_cert: str | None = Field(
-        None,
-        description="Path to Certificate Authority root certificate (.pem format)",
-    )
-    client_cert: str | None = Field(
-        None,
-        description="Path to TLS Client certificate (.pem format)",
-    )
-    client_cert_key: str | None = Field(
-        None,
-        description="Path to the private key for the TLS Client certificate",
-    )
-    http_proxy: str | None = Field(
-        None,
-        description="HTTP proxy address",
-    )
-    https_proxy: str | None = Field(
-        None,
-        description="HTTPS proxy address",
-    )
-    server_host_name: str | None = Field(
-        None,
-        description="Server host name to be checked against the TLS certificate",
-    )
-
-
 class PostgresSettings(BaseModel):
     host: str = Field(
         "localhost",
@@ -526,81 +334,6 @@ class PostgresSettings(BaseModel):
         description="The name of the schema in the Postgres database to use",
     )
 
-
-class QdrantSettings(BaseModel):
-    location: str | None = Field(
-        None,
-        description=(
-            "If `:memory:` - use in-memory Qdrant instance.\n"
-            "If `str` - use it as a `url` parameter.\n"
-        ),
-    )
-    url: str | None = Field(
-        None,
-        description=(
-            "Either host or str of 'Optional[scheme], host, Optional[port], Optional[prefix]'."
-        ),
-    )
-    port: int | None = Field(6333, description="Port of the REST API interface.")
-    grpc_port: int | None = Field(6334, description="Port of the gRPC interface.")
-    prefer_grpc: bool | None = Field(
-        False,
-        description="If `true` - use gRPC interface whenever possible in custom methods.",
-    )
-    https: bool | None = Field(
-        None,
-        description="If `true` - use HTTPS(SSL) protocol.",
-    )
-    api_key: str | None = Field(
-        None,
-        description="API key for authentication in Qdrant Cloud.",
-    )
-    prefix: str | None = Field(
-        None,
-        description=(
-            "Prefix to add to the REST URL path."
-            "Example: `service/v1` will result in "
-            "'http://localhost:6333/service/v1/{qdrant-endpoint}' for REST API."
-        ),
-    )
-    timeout: float | None = Field(
-        None,
-        description="Timeout for REST and gRPC API requests.",
-    )
-    host: str | None = Field(
-        None,
-        description="Host name of Qdrant service. If url and host are None, set to 'localhost'.",
-    )
-    path: str | None = Field(None, description="Persistence path for QdrantLocal.")
-    force_disable_check_same_thread: bool | None = Field(
-        True,
-        description=(
-            "For QdrantLocal, force disable check_same_thread. Default: `True`"
-            "Only use this if you can guarantee that you can resolve the thread safety outside QdrantClient."
-        ),
-    )
-
-
-class MilvusSettings(BaseModel):
-    uri: str = Field(
-        "local_data/private_gpt/milvus/milvus_local.db",
-        description="The URI of the Milvus instance. For example: 'local_data/private_gpt/milvus/milvus_local.db' for Milvus Lite.",
-    )
-    token: str = Field(
-        "",
-        description=(
-            "A valid access token to access the specified Milvus instance. "
-            "This can be used as a recommended alternative to setting user and password separately. "
-        ),
-    )
-    collection_name: str = Field(
-        "make_this_parameterizable_per_api_call",
-        description="The name of the collection in Milvus. Default is 'make_this_parameterizable_per_api_call'.",
-    )
-    overwrite: bool = Field(
-        True, description="Overwrite the previous collection schema if it exists."
-    )
-
 class MetaDataGenerationSettings(BaseModel):
     enable: bool = Field(
         False,
@@ -620,22 +353,13 @@ class Settings(BaseModel):
     ui: UISettings
     llm: LLMSettings
     embedding: EmbeddingSettings
-    llamacpp: LlamaCPPSettings
-    huggingface: HuggingFaceSettings
-    sagemaker: SagemakerSettings
-    openai: OpenAISettings
-    gemini: GeminiSettings
     ollama: OllamaSettings
-    azopenai: AzureOpenAISettings
     vectorstore: VectorstoreSettings
     nodestore: NodeStoreSettings
     rag: RagSettings
     summarize: SummarizeSettings
     metadata_generation: MetaDataGenerationSettings
-    qdrant: QdrantSettings | None = None
     postgres: PostgresSettings | None = None
-    clickhouse: ClickHouseSettings | None = None
-    milvus: MilvusSettings | None = None
 
 
 """

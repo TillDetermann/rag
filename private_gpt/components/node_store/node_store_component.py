@@ -18,43 +18,6 @@ class NodeStoreComponent:
     @inject
     def __init__(self, settings: Settings) -> None:
         match settings.nodestore.database:
-            case "simple":
-                try:
-                    self.index_store = SimpleIndexStore.from_persist_dir(
-                        persist_dir=str(local_data_path)
-                    )
-                except FileNotFoundError:
-                    logger.debug("Local index store not found, creating a new one")
-                    self.index_store = SimpleIndexStore()
-                try:
-                    self.doc_store = SimpleDocumentStore.from_persist_dir(
-                        persist_dir=str(local_data_path)
-                    )
-                except FileNotFoundError:
-                    logger.debug("Local document store not found, creating a new one")
-                    self.doc_store = SimpleDocumentStore()
-            case "mongo":
-                try:
-                    from llama_index.storage.docstore.mongodb import MongoDocumentStore  # type: ignore
-                    from llama_index.storage.index_store.mongodb import MongoIndexStore  # type: ignore
-                except ImportError:
-                    raise ImportError(
-                        "MongoDB dependencies not found, install with "
-                        "`poetry install --extras storage-nodestore-mongo` "
-                        "or pip install llama-index-storage-docstore-mongodb "
-                        "llama-index-storage-index-store-mongodb"
-                    ) from None
-
-                mongo_uri = None
-                if getattr(settings, "mongo", None) is not None:
-                    mongo_uri = getattr(settings.mongo, "uri", None)
-
-                if not mongo_uri:
-                    raise ValueError("Mongo settings not found. Provide settings.mongo.uri")
-
-                self.doc_store = MongoDocumentStore.from_uri(uri=mongo_uri)
-                self.index_store = MongoIndexStore.from_uri(uri=mongo_uri)
-
             case "postgres":
                 try:
                     from llama_index.storage.docstore.postgres import (  # type: ignore
@@ -77,11 +40,4 @@ class NodeStoreComponent:
 
                 self.doc_store = PostgresDocumentStore.from_params(
                     **settings.postgres.model_dump(exclude_none=True)
-                )
-
-            case _:
-                # Should be unreachable
-                # The settings validator should have caught this
-                raise ValueError(
-                    f"Database {settings.nodestore.database} not supported"
                 )
