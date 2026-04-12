@@ -1,12 +1,7 @@
 import logging
 from pathlib import Path
-
-from llama_index.core.readers import StringIterableReader
 from llama_index.core.readers.base import BaseReader
-from llama_index.core.readers.json import JSONReader
 from llama_index.core.schema import Document
-from private_gpt.components.ingest.custom_file_reader.code_reader import CodeReader
-from private_gpt.components.ingest.custom_file_reader.pdf_one_doc_reader import OneDocumentPDFReader
 
 
 logger = logging.getLogger(__name__)

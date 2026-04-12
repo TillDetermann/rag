@@ -115,9 +115,6 @@ To csv: https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfd
 ## 5. TODOs:
 
 - code ingestion pipline umsetzten
-  - größe von chunks fucked up. Aber das roblem ist dass wie aktuell den chunk baue muss es in einem stück bleiben. -> code da raus nehmen und irgendiwe atachhen (meta daten). Die einzelnen summarys beschränken.
-  - umbenennen und Struktur umbauen
-  - code reader löschen
   - große llm anbinden
 - Ernsthaft über agent nachdenken, weil für allem diese zurückführende ist sehr gut für trasnsitivität
 - Gedanken machen was man mit metadaten alles machen kann
