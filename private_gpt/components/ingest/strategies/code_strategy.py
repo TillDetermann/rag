@@ -45,7 +45,7 @@ class CodeStrategy(IngestionStrategy):
         self.summary_transform = AddSummaryParser()
 
         self.size_limiter = SentenceSplitter(
-            chunk_size=2000,
+            chunk_size=1000,
             chunk_overlap=50,
         )
 

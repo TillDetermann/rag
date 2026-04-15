@@ -1,9 +1,8 @@
 import logging
 
 from injector import inject, singleton
-from llama_index.core.embeddings import BaseEmbedding, MockEmbedding
+from llama_index.core.embeddings import BaseEmbedding
 
-from private_gpt.paths import models_cache_path
 from private_gpt.settings.settings import Settings
 
 logger = logging.getLogger(__name__)

@@ -28,7 +28,8 @@ from private_gpt.open_ai.extensions.context_filter import ContextFilter
 from private_gpt.server.chunks.chunks_service import Chunk
 from private_gpt.settings.settings import Settings
 
-from llama_index.llms.ollama import Ollama
+from llama_index.core.retrievers import QueryFusionRetriever
+from llama_index.retrievers.bm25 import BM25Retriever
 
 import logging
 
@@ -100,13 +101,14 @@ class ChatService:
             docstore=node_store_component.doc_store,
             index_store=node_store_component.index_store,
         )
-        self.index = VectorStoreIndex.from_vector_store(
+        self.vector_index = VectorStoreIndex.from_vector_store(
             vector_store_component.vector_store,
             storage_context=self.storage_context,
             llm=llm_component.llm,
             embed_model=embedding_component.embedding_model,
             show_progress=True,
         )
+
     def _chat_engine(
         self,
         user_prompt: str | None = None,
@@ -116,27 +118,42 @@ class ChatService:
     ) -> BaseChatEngine:
         settings = self.settings
         if use_context:
-            # Generate metadata from user prompt
-            metadata = MetadataRetrivialComponent(settings).generate_chunk_metadata(user_prompt, "", settings.metadata_generation.max_entry_per_category) if user_prompt else {}
+            metadata = MetadataRetrivialComponent(settings).generate_chunk_metadata(
+                user_prompt, "", settings.metadata_generation.max_entry_per_category
+            ) if user_prompt else {}
 
-            # Create additional filters with generated tags
             additional_filters = None
-            # Remove empty values and empty arrays from metadata
             additional_filters = {
-                key: value 
-                for key, value in metadata.items() 
+                key: value
+                for key, value in metadata.items()
                 if value and (not isinstance(value, list) or len(value) > 0)
             }
             additional_filters = additional_filters if additional_filters else None
-
             additional_filters = None
 
-            vector_index_retriever = self.vector_store_component.get_retriever(
-                index=self.index,
+            # Vector Retriever
+            vector_retriever = self.vector_store_component.get_retriever(
+                index=self.vector_index,
                 context_filter=context_filter,
                 similarity_top_k=self.settings.rag.similarity_top_k,
                 additional_filters=additional_filters,
             )
+
+            # BM25 retriever
+            bm25_retriever = BM25Retriever.from_defaults(
+                docstore=self.storage_context.docstore,
+                similarity_top_k=1,
+            )
+
+            # Hybrid Retriever with Reciprocal Rank Fusion
+            hybrid_retriever = QueryFusionRetriever(
+                retrievers=[vector_retriever, bm25_retriever],
+                mode="reciprocal_rerank",
+                num_queries=1,
+                similarity_top_k=self.settings.rag.similarity_top_k,
+                llm=self.llm_component.llm
+            )
+
             node_postprocessors: list[BaseNodePostprocessor] = [
                 MetadataReplacementPostProcessor(target_metadata_key="window"),
             ]
@@ -149,14 +166,15 @@ class ChatService:
 
             if settings.rag.rerank.enabled:
                 rerank_postprocessor = SentenceTransformerRerank(
-                    model=settings.rag.rerank.model, top_n=settings.rag.rerank.top_n
+                    model=settings.rag.rerank.model,
+                    top_n=settings.rag.rerank.top_n,
                 )
                 node_postprocessors.append(rerank_postprocessor)
 
             return ContextChatEngine.from_defaults(
                 system_prompt=system_prompt,
-                retriever=vector_index_retriever,
-                llm=self.llm_component.llm,  # Takes no effect at the moment
+                retriever=hybrid_retriever,  # Hybrid statt nur Vector
+                llm=self.llm_component.llm,
                 node_postprocessors=node_postprocessors,
             )
         else:
@@ -164,7 +182,6 @@ class ChatService:
                 system_prompt=system_prompt,
                 llm=self.llm_component.llm,
             )
-
     def stream_chat(
         self,
         messages: list[ChatMessage],

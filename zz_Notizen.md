@@ -114,13 +114,17 @@ To csv: https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfd
 
 ## 5. TODOs:
 
+- clean up meta data retrivial raus.
+- agent erste steps -> reicht meine hardware dafür
 - code ingestion pipline umsetzten
   - große llm anbinden
-- Ernsthaft über agent nachdenken, weil für allem diese zurückführende ist sehr gut für trasnsitivität
+
 - Gedanken machen was man mit metadaten alles machen kann
-- AutoTokinizer aktuell, geht da einfach ein beserer?
+  - wenn user in prompt synnomu benutzt(ventik 4), ergänzen mit allen anderen begrifflickeitem
+  - wenn im ingestion docuemtn doppeldeutgkeiten gefunden werden auch ersetzetn
+- Code database aufbauen
 
 ## 6. Befehle
 
 - source /Users/tilldetermann/Arbeit/Code/private-gpt/.venv/bin/activate
-- PGPT_PROFILES=ollama python -m private_gpt
+- python -m private_gpt

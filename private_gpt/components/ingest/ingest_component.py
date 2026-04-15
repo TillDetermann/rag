@@ -9,10 +9,8 @@ from pathlib import Path
 from queue import Queue
 from typing import Any
 
-from llama_index.core.data_structs import IndexDict
 from llama_index.core.embeddings.utils import EmbedType
 from llama_index.core.indices import VectorStoreIndex, load_index_from_storage
-from llama_index.core.indices.base import BaseIndex
 from llama_index.core.ingestion import run_transformations
 from llama_index.core.schema import Document, TransformComponent
 from llama_index.core.storage import StorageContext
@@ -65,38 +63,42 @@ class BaseIngestComponentWithIndex(BaseIngestComponent, abc.ABC):
         self._index_thread_lock = (
             threading.Lock()
         )  # Thread lock! Not Multiprocessing lock
-        self._index = self._initialize_index()
+        self._vector_index = self._initialize_index()
 
-    def _initialize_index(self) -> BaseIndex[IndexDict]:
-        """Initialize the index from the storage context."""
+    def _initialize_index(self) -> VectorStoreIndex:
+        """Initialize both vector and keyword indices."""
         try:
-            # Load the index with store_nodes_override=True to be able to delete them
-            index = load_index_from_storage(
+            vector_index = load_index_from_storage(
                 storage_context=self.storage_context,
+                index_id="vector",
                 store_nodes_override=True,
                 embed_model=self.embed_model,
             )
         except ValueError:
-            # There are no index in the storage context, creating a new one
-            logger.info("Creating a new vector store index")
-            index = VectorStoreIndex.from_documents(
+            logger.info("Creating new vector and keyword indices")
+            vector_index = VectorStoreIndex.from_documents(
                 [],
                 storage_context=self.storage_context,
                 store_nodes_override=True,
                 embed_model=self.embed_model,
             )
-            index.storage_context.persist(persist_dir=local_data_path)
-        return index
+            vector_index.set_index_id("vector")
+
+            self.storage_context.persist(persist_dir=local_data_path)
+
+        return vector_index
 
     def _save_index(self) -> None:
-        self._index.storage_context.persist(persist_dir=local_data_path)
+        self._vector_index.storage_context.persist(persist_dir=local_data_path)
 
     def delete(self, doc_id: str) -> None:
         with self._index_thread_lock:
-            # Delete the document from the index
-            self._index.delete_ref_doc(doc_id, delete_from_docstore=True)
+            # delete doc in vector database
+            self._vector_index.delete_ref_doc(doc_id, delete_from_docstore=False)
 
-            # Save the index
+            # delete doc in docstore
+            self._vector_index.docstore.delete_ref_doc(doc_id)
+
             self._save_index()
 
 class SimpleIngestComponent(BaseIngestComponentWithIndex):
@@ -165,11 +167,16 @@ class SimpleIngestComponent(BaseIngestComponentWithIndex):
                     all_nodes.extend(nodes)
 
         with self._index_thread_lock:
-            self._index.insert_nodes(all_nodes, show_progress=True)
+            # Nodes insert in vector database
+            self._vector_index.insert_nodes(all_nodes, show_progress=True)
+
             for document in documents:
-                self._index.docstore.set_document_hash(document.get_doc_id(), document.hash)
+                self._vector_index.docstore.set_document_hash(
+                    document.get_doc_id(), document.hash
+                )
             self._save_index()
         return documents
+
 # class BatchIngestComponent(BaseIngestComponentWithIndex):
 #     """Parallelize the file reading and parsing on multiple CPU core.
 
