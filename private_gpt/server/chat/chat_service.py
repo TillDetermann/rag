@@ -15,7 +15,6 @@ from llama_index.core.postprocessor import (
 )
 from llama_index.core.storage import StorageContext
 from llama_index.core.types import TokenGen
-from private_gpt.components.metadata_retrivial.metadata_retrivial_component import MetadataRetrivialComponent
 from pydantic import BaseModel
 
 from private_gpt.components.embedding.embedding_component import EmbeddingComponent
@@ -118,25 +117,13 @@ class ChatService:
     ) -> BaseChatEngine:
         settings = self.settings
         if use_context:
-            metadata = MetadataRetrivialComponent(settings).generate_chunk_metadata(
-                user_prompt, "", settings.metadata_generation.max_entry_per_category
-            ) if user_prompt else {}
-
-            additional_filters = None
-            additional_filters = {
-                key: value
-                for key, value in metadata.items()
-                if value and (not isinstance(value, list) or len(value) > 0)
-            }
-            additional_filters = additional_filters if additional_filters else None
-            additional_filters = None
 
             # Vector Retriever
             vector_retriever = self.vector_store_component.get_retriever(
                 index=self.vector_index,
                 context_filter=context_filter,
                 similarity_top_k=self.settings.rag.similarity_top_k,
-                additional_filters=additional_filters,
+                additional_filters=None,
             )
 
             # BM25 retriever

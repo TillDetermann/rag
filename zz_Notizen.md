@@ -114,8 +114,7 @@ To csv: https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfd
 
 ## 5. TODOs:
 
-- clean up meta data retrivial raus.
-- agent erste steps -> reicht meine hardware dafür
+- agent erste steps -> reicht meine hardware dafür -> Joa geht so
 - code ingestion pipline umsetzten
   - große llm anbinden
 
