@@ -8,7 +8,7 @@
 
 ```python
 self.storage_context = StorageContext.from_defaults(
-    vector_store=vector_store_component.vector_store,
+    vector_store=vector_store_component.vector_store_text,
     docstore=node_store_component.doc_store,
     index_store=node_store_component.index_store,
 )
@@ -114,14 +114,16 @@ To csv: https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfd
 
 ## 5. TODOs:
 
-- agent erste steps -> reicht meine hardware dafür -> Joa geht so
+- Code database aufbauen
+  - zwei storage context etablieren
+  - gedanken machen wie man das schön umsetzten kann -> metadaten?
+  - gucken wie das mit den doc id is
 - code ingestion pipline umsetzten
   - große llm anbinden
 
 - Gedanken machen was man mit metadaten alles machen kann
   - wenn user in prompt synnomu benutzt(ventik 4), ergänzen mit allen anderen begrifflickeitem
   - wenn im ingestion docuemtn doppeldeutgkeiten gefunden werden auch ersetzetn
-- Code database aufbauen
 
 ## 6. Befehle
 

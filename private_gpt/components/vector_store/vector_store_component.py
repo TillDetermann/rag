@@ -44,7 +44,8 @@ def _extended_metadata_filter(
 @singleton
 class VectorStoreComponent:
     settings: Settings
-    vector_store: BasePydanticVectorStore
+    vector_store_text: BasePydanticVectorStore
+    vector_store_code: BasePydanticVectorStore
 
     @inject
     def __init__(self, settings: Settings) -> None:
@@ -65,12 +66,22 @@ class VectorStoreComponent:
                         "Postgres settings not found. Please provide settings."
                     )
 
-                self.vector_store = typing.cast(
+                self.vector_store_text = typing.cast(
                     BasePydanticVectorStore,
                     PGVectorStore.from_params(
                         **settings.postgres.model_dump(exclude_none=True),
-                        table_name="embeddings",
-                        embed_dim=settings.embedding.embed_dim,
+                        table_name="embeddings_text",
+                        embed_dim=settings.embedding.embed_dim_text,
+                    ),
+                )
+
+
+                self.vector_store_code = typing.cast(
+                    BasePydanticVectorStore,
+                    PGVectorStore.from_params(
+                        **settings.postgres.model_dump(exclude_none=True),
+                        table_name="embeddings_code",
+                        embed_dim=settings.embedding.embed_dim_code,
                     ),
                 )
 
@@ -89,5 +100,7 @@ class VectorStoreComponent:
         )
 
     def close(self) -> None:
-        if hasattr(self.vector_store.client, "close"):
-            self.vector_store.client.close()
+        if hasattr(self.vector_store_text.client, "close"):
+            self.vector_store_text.client.close()
+        if hasattr(self.vector_store_code.client, "close"):
+            self.vector_store_code.client.close()

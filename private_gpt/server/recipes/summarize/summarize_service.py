@@ -48,7 +48,7 @@ class SummarizeService:
         self.vector_store_component = vector_store_component
         self.embedding_component = embedding_component
         self.storage_context = StorageContext.from_defaults(
-            vector_store=vector_store_component.vector_store,
+            vector_store=vector_store_component.vector_store_text,
             docstore=node_store_component.doc_store,
             index_store=node_store_component.index_store,
         )

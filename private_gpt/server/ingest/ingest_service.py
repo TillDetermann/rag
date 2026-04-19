@@ -37,7 +37,7 @@ class IngestService:
     ) -> None:
         self.llm_service = llm_component
         self.storage_context = StorageContext.from_defaults(
-            vector_store=vector_store_component.vector_store,
+            vector_store=vector_store_component.vector_store_text,
             docstore=node_store_component.doc_store,
             index_store=node_store_component.index_store,
         )
@@ -54,7 +54,7 @@ class IngestService:
         self.strategy_registry.register(
             CodeStrategy(
                 settings=self.settings,
-                embed_model=embedding_component.embedding_model,
+                embed_model=embedding_component.embedding_model_text,
                 storage_context=self.storage_context
             ),
         )
@@ -66,7 +66,7 @@ class IngestService:
         )
         self.ingest_component = get_ingestion_component(
             self.storage_context,
-            embedding_component.embedding_model,
+            embedding_component.embedding_model_text,
             settings=self.settings,
         )
 

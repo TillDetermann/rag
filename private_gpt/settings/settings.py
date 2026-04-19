@@ -170,9 +170,13 @@ class EmbeddingSettings(BaseModel):
             "Do not set it higher than your number of threads of your CPU."
         ),
     )
-    embed_dim: int = Field(
+    embed_dim_text: int = Field(
         384,
-        description="The dimension of the embeddings stored in the Postgres database",
+        description="The dimension of the embeddings for text stored in the Postgres database",
+    )
+    embed_dim_code: int = Field(
+        384,
+        description="The dimension of the embeddings for code stored in the Postgres database",
     )
 
 
@@ -189,9 +193,13 @@ class OllamaSettings(BaseModel):
         None,
         description="Model to use. Example: 'llama2-uncensored'.",
     )
-    embedding_model: str = Field(
+    embedding_model_text: str = Field(
         None,
-        description="Model to use. Example: 'nomic-embed-text'.",
+        description="Model to use for text. Example: 'nomic-embed-text'.",
+    )
+    embedding_model_code: str = Field(
+        None,
+        description="Model to use for code. Example: 'nomic-embed-code'.",
     )
     worker_llm: str = Field(
         "qwen2.5:0.5b",

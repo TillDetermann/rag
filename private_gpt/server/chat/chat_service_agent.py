@@ -55,16 +55,16 @@ class ChatService:
           self.llm_component = llm_component
           self.embedding_component = embedding_component
           self.vector_store_component = vector_store_component
-          self.storage_context = StorageContext.from_defaults(
-               vector_store=vector_store_component.vector_store,
+          self.storage_context_text = StorageContext.from_defaults(
+               vector_store=vector_store_component.vector_store_text,
                docstore=node_store_component.doc_store,
                index_store=node_store_component.index_store,
           )
-          self.vector_index = VectorStoreIndex.from_vector_store(
-               vector_store_component.vector_store,
-               storage_context=self.storage_context,
+          self.vector_index_text = VectorStoreIndex.from_vector_store(
+               vector_store_component.vector_store_text,
+               storage_context=self.storage_context_text,
                llm=llm_component.llm,
-               embed_model=embedding_component.embedding_model,
+               embed_model=embedding_component.embedding_model_text,
                show_progress=True,
           )
 
@@ -89,12 +89,12 @@ class ChatService:
                )
 
           vector_retriever = self.vector_store_component.get_retriever(
-               index=self.vector_index,
+               index=self.vector_index_text,
                context_filter=None,
                similarity_top_k=self.settings.rag.similarity_top_k,
           )
           bm25_retriever = BM25Retriever.from_defaults(
-               docstore=self.storage_context.docstore,
+               docstore=self.storage_context_text.docstore,
                similarity_top_k=1,
           )
           hybrid_retriever = QueryFusionRetriever(

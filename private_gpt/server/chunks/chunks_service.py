@@ -67,7 +67,7 @@ class ChunksService:
         self.llm_component = llm_component
         self.embedding_component = embedding_component
         self.storage_context = StorageContext.from_defaults(
-            vector_store=vector_store_component.vector_store,
+            vector_store=vector_store_component.vector_store_text,
             docstore=node_store_component.doc_store,
             index_store=node_store_component.index_store,
         )
@@ -101,10 +101,10 @@ class ChunksService:
         prev_next_chunks: int = 0,
     ) -> list[Chunk]:
         index = VectorStoreIndex.from_vector_store(
-            self.vector_store_component.vector_store,
+            self.vector_store_component.vector_store_text,
             storage_context=self.storage_context,
             llm=self.llm_component.llm,
-            embed_model=self.embedding_component.embedding_model,
+            embed_model=self.embedding_component.embedding_model_text,
             show_progress=True,
         )
         vector_index_retriever = self.vector_store_component.get_retriever(

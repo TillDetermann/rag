@@ -148,7 +148,8 @@ embedding:
   # Should be matching the value above in most cases
   mode: ollama
   ingest_mode: simple
-  embed_dim: 768 # 768 is for nomic-ai/nomic-embed-text-v1.5
+  embed_dim_text: 768 # 768 is for nomic-ai/nomic-embed-text-v1.5
+  embed_dim_code: 768
 
 vectorstore:
   database: postgres
@@ -166,7 +167,8 @@ postgres:
 
 ollama:
   llm_model: qwen3:4b
-  embedding_model: nomic-embed-text
+  embedding_model_text: nomic-embed-text
+  embedding_model_code: nomic-embed-code
   worker_llm: qwen2.5:0.5b
   code_llm: qwen2.5-coder:3b
   code_summary_mode: all # can be: all, code, summarized

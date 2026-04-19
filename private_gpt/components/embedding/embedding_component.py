@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 @singleton
 class EmbeddingComponent:
-    embedding_model: BaseEmbedding
+    embedding_model_text: BaseEmbedding
+    embedding_model_code: BaseEmbedding
 
     @inject
     def __init__(self, settings: Settings) -> None:
@@ -31,14 +32,26 @@ class EmbeddingComponent:
                 ollama_settings = settings.ollama
 
                 # Calculate embedding model. If not provided tag, it will be use latest
-                model_name = (
-                    ollama_settings.embedding_model + ":latest"
-                    if ":" not in ollama_settings.embedding_model
-                    else ollama_settings.embedding_model
+                model_name_text = (
+                    ollama_settings.embedding_model_text + ":latest"
+                    if ":" not in  ollama_settings.embedding_model_text
+                    else  ollama_settings.embedding_model_text
                 )
 
-                self.embedding_model = OllamaEmbedding(
-                    model_name=model_name,
+                self.embedding_model_text = OllamaEmbedding(
+                    model_name=model_name_text,
+                    base_url=ollama_settings.embedding_api_base,
+                )
+
+                # Calculate embedding model. If not provided tag, it will be use latest
+                model_name_code = (
+                    ollama_settings.embedding_model_code + ":latest"
+                    if ":" not in  ollama_settings.embedding_model_code
+                    else  ollama_settings.embedding_model_code
+                )
+
+                self.embedding_model_code = OllamaEmbedding(
+                    model_name=model_name_code,
                     base_url=ollama_settings.embedding_api_base,
                 )
 
@@ -60,4 +73,5 @@ class EmbeddingComponent:
                                 f"Failed to connect to Ollama, "
                                 f"check if Ollama server is running on {ollama_settings.api_base}"
                             )
-                        pull_model(client, model_name)
+                        pull_model(client, model_name_text)
+                        pull_model(client, model_name_code)
