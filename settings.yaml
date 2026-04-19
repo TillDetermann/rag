@@ -168,7 +168,7 @@ postgres:
 ollama:
   llm_model: qwen3:4b
   embedding_model_text: nomic-embed-text
-  embedding_model_code: nomic-embed-code
+  embedding_model_code: vuongnguyen2212/CodeRankEmbed
   worker_llm: qwen2.5:0.5b
   code_llm: qwen2.5-coder:3b
   code_summary_mode: all # can be: all, code, summarized

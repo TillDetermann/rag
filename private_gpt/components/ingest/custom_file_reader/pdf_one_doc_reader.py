@@ -62,7 +62,6 @@ class OneDocumentPDFReader(BaseReader):
                 "file_name": file.name if isinstance(file, Path) else str(file),
                 "doc_type": "text"
             },
-            ref_doc_id=file.name if isinstance(file, Path) else str(file),
         )
         
         return [combined_document]

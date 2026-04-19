@@ -1,13 +1,10 @@
 from llama_index.core.node_parser import SentenceSplitter, SemanticSplitterNodeParser
 from llama_index.core.schema import TransformComponent
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.llms.ollama import Ollama
 from llama_index.core.readers.base import BaseReader
 
-from llama_index.core.embeddings import BaseEmbedding
 from private_gpt.components.ingest.custom_file_reader.pdf_one_doc_reader import OneDocumentPDFReader
 from private_gpt.components.ingest.ingest_strategy import IngestionStrategy
-from private_gpt.components.metadata_retrivial.metadata_retrivial_parser import LLMMetadataTransformation
 from private_gpt.components.ingest.custom_node_parser.add_summary_parser import AddSummaryParser
 from private_gpt.settings.settings import Settings
 

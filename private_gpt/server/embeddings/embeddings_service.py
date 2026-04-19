@@ -11,7 +11,6 @@ class Embedding(BaseModel):
     object: Literal["embedding"]
     embedding: list[float] = Field(examples=[[0.0023064255, -0.009327292]])
 
-
 @singleton
 class EmbeddingsService:
     @inject

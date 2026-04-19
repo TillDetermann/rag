@@ -7,7 +7,7 @@ import os
 import threading
 from pathlib import Path
 from queue import Queue
-from typing import Any
+from typing import Any, Literal
 
 from llama_index.core.embeddings.utils import EmbedType
 from llama_index.core.indices import VectorStoreIndex, load_index_from_storage
@@ -26,14 +26,18 @@ logger = logging.getLogger(__name__)
 class BaseIngestComponent(abc.ABC):
     def __init__(
         self,
-        storage_context: StorageContext,
-        embed_model: EmbedType,
+        storage_context_text: StorageContext,
+        storage_context_code: StorageContext,
+        embed_model_text: EmbedType,
+        embed_model_code: EmbedType,
         *args: Any,
         **kwargs: Any,
     ) -> None:
         logger.debug("Initializing base ingest component type=%s", type(self).__name__)
-        self.storage_context = storage_context
-        self.embed_model = embed_model
+        self.storage_context_text = storage_context_text
+        self.storage_context_code = storage_context_code
+        self.embed_model_text = embed_model_text
+        self.embed_model_code = embed_model_code
 
     @abc.abstractmethod
     def ingest(self, file_name: str, reader: BaseReader, file_data: Path, transformations_per_doc_type: dict[str, list[TransformComponent]]) -> list[Document]:
@@ -49,86 +53,105 @@ class BaseIngestComponent(abc.ABC):
     def delete(self, doc_id: str) -> None:
         pass
 
+
 class BaseIngestComponentWithIndex(BaseIngestComponent, abc.ABC):
     def __init__(
         self,
-        storage_context: StorageContext,
-        embed_model: EmbedType,
+        storage_context_text: StorageContext,
+        storage_context_code: StorageContext,
+        embed_model_text: EmbedType,
+        embed_model_code: EmbedType,
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        super().__init__(storage_context, embed_model, *args, **kwargs)
+        super().__init__(
+            storage_context_text, storage_context_code,
+            embed_model_text, embed_model_code,
+            *args, **kwargs,
+        )
 
         self.show_progress = True
-        self._index_thread_lock = (
-            threading.Lock()
-        )  # Thread lock! Not Multiprocessing lock
-        self._vector_index = self._initialize_index()
+        self._index_thread_lock = threading.Lock()
+        self._vector_index_text = self._initialize_index(
+            self.storage_context_text, self.embed_model_text
+        )
+        self._vector_index_code = self._initialize_index(
+            self.storage_context_code, self.embed_model_code
+        )
 
-    def _initialize_index(self) -> VectorStoreIndex:
-        """Initialize both vector and keyword indices."""
+    def _initialize_index(
+        self, storage_context: StorageContext, embed_model: EmbedType
+    ) -> VectorStoreIndex:
         try:
             vector_index = load_index_from_storage(
-                storage_context=self.storage_context,
-                index_id="vector",
+                storage_context=storage_context,
                 store_nodes_override=True,
-                embed_model=self.embed_model,
+                embed_model=embed_model,
             )
         except ValueError:
-            logger.info("Creating new vector and keyword indices")
+            logger.info("Creating new vector index")
             vector_index = VectorStoreIndex.from_documents(
                 [],
-                storage_context=self.storage_context,
+                storage_context=storage_context,
                 store_nodes_override=True,
-                embed_model=self.embed_model,
+                embed_model=embed_model,
             )
-            vector_index.set_index_id("vector")
-
-            self.storage_context.persist(persist_dir=local_data_path)
+            storage_context.persist(persist_dir=local_data_path)
 
         return vector_index
 
     def _save_index(self) -> None:
-        self._vector_index.storage_context.persist(persist_dir=local_data_path)
+        self._vector_index_text.storage_context.persist(persist_dir=local_data_path)
+        self._vector_index_code.storage_context.persist(persist_dir=local_data_path)
+
 
     def delete(self, doc_id: str) -> None:
         with self._index_thread_lock:
-            # delete doc in vector database
-            self._vector_index.delete_ref_doc(doc_id, delete_from_docstore=False)
-
-            # delete doc in docstore
-            self._vector_index.docstore.delete_ref_doc(doc_id)
+            for index in [self._vector_index_text, self._vector_index_code]:
+                try:
+                    index.delete_ref_doc(doc_id, delete_from_docstore=False)
+                except Exception:
+                    pass
+            try:
+                self._vector_index_text.docstore.delete_ref_doc(doc_id)
+            except Exception:
+                pass
 
             self._save_index()
 
 class SimpleIngestComponent(BaseIngestComponentWithIndex):
     def __init__(
         self,
-        storage_context: StorageContext,
-        embed_model: EmbedType,
+        storage_context_text: StorageContext,
+        storage_context_code: StorageContext,
+        embed_model_text: EmbedType,
+        embed_model_code: EmbedType,
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        super().__init__(storage_context, embed_model, *args, **kwargs)
+        super().__init__(
+            storage_context_text, storage_context_code,
+            embed_model_text, embed_model_code,
+            *args, **kwargs,
+        )
 
     def ingest(
-    self, 
-    file_name: str, 
-    reader: BaseReader, 
-    file_data: Path, 
-    transformations_per_doc_type: dict[str, list[TransformComponent]]
-) -> list[Document]:
+        self,
+        file_name: str,
+        reader: BaseReader,
+        file_data: Path,
+        transformations_per_doc_type: dict[str, list[TransformComponent]],
+    ) -> list[Document]:
         logger.info("Ingesting file_name=%s", file_name)
         documents = IngestionHelper.transform_file_into_documents(file_name, reader, file_data)
-
         return self._save_docs(documents, transformations_per_doc_type)
 
     def bulk_ingest(
-    self,
-    files: list[tuple[str, Path]],
-    readers: dict[Path, BaseReader],
-    transformations_per_file: dict[Path, dict[str, list[TransformComponent]]],
-) -> list[Document]:
+        self,
+        files: list[tuple[str, Path]],
+        readers: dict[Path, BaseReader],
+        transformations_per_file: dict[Path, dict[str, list[TransformComponent]]],
+    ) -> list[Document]:
         saved_documents = []
         for file_name, file_data in files:
             reader = readers[file_data]
@@ -140,17 +163,19 @@ class SimpleIngestComponent(BaseIngestComponentWithIndex):
         return saved_documents
 
     def _save_docs(
-    self,
-    documents: list[Document],
-    transformations_per_doc_type: dict[str, list[TransformComponent]],
-) -> list[Document]:
-        all_nodes = []
+        self,
+        documents: list[Document],
+        transformations_per_doc_type: dict[str, list[TransformComponent]],
+    ) -> list[Document]:
+        all_nodes: dict[str, list] = {"text": [], "code": []}
         default_key = next(iter(transformations_per_doc_type))
 
         if len(transformations_per_doc_type) == 1:
             pipeline = transformations_per_doc_type[default_key]
             nodes = run_transformations(documents, pipeline, show_progress=True)
-            all_nodes.extend(nodes)
+            # default_key bestimmt ob text oder code
+            target = "code" if default_key == "code" else "text"
+            all_nodes[target].extend(nodes)
         else:
             grouped: dict[str, list[Document]] = {key: [] for key in transformations_per_doc_type}
             for doc in documents:
@@ -164,19 +189,26 @@ class SimpleIngestComponent(BaseIngestComponentWithIndex):
                 if docs:
                     pipeline = transformations_per_doc_type[doc_type]
                     nodes = run_transformations(docs, pipeline, show_progress=True)
-                    all_nodes.extend(nodes)
+                    target = "code" if doc_type == "code" else "text"
+                    all_nodes[target].extend(nodes)
 
         with self._index_thread_lock:
-            # Nodes insert in vector database
-            self._vector_index.insert_nodes(all_nodes, show_progress=True)
+            if all_nodes["text"]:
+                self._vector_index_text.insert_nodes(
+                    all_nodes["text"], show_progress=True
+                )
+            if all_nodes["code"]:
+                self._vector_index_code.insert_nodes(
+                    all_nodes["code"], show_progress=True
+                )
 
             for document in documents:
-                self._vector_index.docstore.set_document_hash(
+                self._vector_index_text.docstore.set_document_hash(
                     document.get_doc_id(), document.hash
                 )
             self._save_index()
-        return documents
 
+        return documents
 # class BatchIngestComponent(BaseIngestComponentWithIndex):
 #     """Parallelize the file reading and parsing on multiple CPU core.
 
@@ -513,8 +545,10 @@ class SimpleIngestComponent(BaseIngestComponentWithIndex):
 #         return docs
 
 def get_ingestion_component(
-    storage_context: StorageContext,
-    embed_model: EmbedType,
+    storage_context_text: StorageContext,
+    storage_context_code: StorageContext,
+    embed_model_text: EmbedType,
+    embed_model_code: EmbedType,
     settings: Settings,
 ) -> BaseIngestComponent:
     """Get the ingestion component for the given configuration."""
@@ -547,6 +581,8 @@ def get_ingestion_component(
     #         transformations=transformations,
     #     )
     return SimpleIngestComponent(
-    storage_context=storage_context,
-    embed_model=embed_model
+    storage_context_text=storage_context_text,
+    storage_context_code=storage_context_code,
+    embed_model_text=embed_model_text,
+    embed_model_code=embed_model_code
     )

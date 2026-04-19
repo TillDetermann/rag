@@ -36,8 +36,13 @@ class IngestService:
         node_store_component: NodeStoreComponent,
     ) -> None:
         self.llm_service = llm_component
-        self.storage_context = StorageContext.from_defaults(
+        self.storage_context_text = StorageContext.from_defaults(
             vector_store=vector_store_component.vector_store_text,
+            docstore=node_store_component.doc_store,
+            index_store=node_store_component.index_store,
+        )
+        self.storage_context_code = StorageContext.from_defaults(
+            vector_store=vector_store_component.vector_store_code,
             docstore=node_store_component.doc_store,
             index_store=node_store_component.index_store,
         )
@@ -55,7 +60,7 @@ class IngestService:
             CodeStrategy(
                 settings=self.settings,
                 embed_model=embedding_component.embedding_model_text,
-                storage_context=self.storage_context
+                storage_context=self.storage_context_text
             ),
         )
 
@@ -65,8 +70,10 @@ class IngestService:
             ),
         )
         self.ingest_component = get_ingestion_component(
-            self.storage_context,
+            self.storage_context_text,
+            self.storage_context_code,
             embedding_component.embedding_model_text,
+            embedding_component.embedding_model_code,
             settings=self.settings,
         )
 
@@ -124,7 +131,7 @@ class IngestService:
     def list_ingested(self) -> list[IngestedDoc]:
         ingested_docs: list[IngestedDoc] = []
         try:
-            docstore = self.storage_context.docstore
+            docstore = self.storage_context_text.docstore
             ref_docs: dict[str, RefDocInfo] | None = docstore.get_all_ref_doc_info()
 
             if not ref_docs:

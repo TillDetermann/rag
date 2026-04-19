@@ -2,6 +2,7 @@ from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.schema import TransformComponent
 from llama_index.core.readers.base import BaseReader
 
+from private_gpt.components.ingest.custom_file_reader.code_reader import CodeReader
 from private_gpt.components.ingest.custom_splitter.function_splitter import FunctionSplitter
 from private_gpt.components.ingest.ingest_strategy import IngestionStrategy
 from private_gpt.components.ingest.custom_node_parser.add_summary_parser import AddSummaryParser
@@ -58,13 +59,17 @@ class CodeStrategy(IngestionStrategy):
             language=language
         )
         return {
-            "code": [
+            "text": [
                 code_splitter,
                 self.code_enrichment_parser,
                 self.size_limiter,
                 self.summary_transform
             ],
+            "code": [
+                code_splitter,
+                self.size_limiter,
+            ],
         }
     
     def get_reader(self)-> BaseReader:
-        return FlatReader()
+        return CodeReader()

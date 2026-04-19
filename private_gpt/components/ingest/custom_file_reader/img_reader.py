@@ -73,9 +73,8 @@ Be precise and technical. Use standard engineering terminology. Do not speculate
                     "file_name": file.name,
                     "file_path": str(file.resolve()),
                     "source_type": "image",
-                    "doc_type": "image-summary",
+                    "doc_type": "text",
                },
-               ref_doc_id=file.name if isinstance(file, Path) else str(file),
           )
           if extra_info:
                description_document.metadata.update(extra_info)

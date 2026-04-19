@@ -43,7 +43,7 @@ class ImageStrategy(IngestionStrategy):
 
     def get_transformations_per_doc_type(self, extension: str | None = None) -> dict[str, list[TransformComponent]]:
         return {
-            "image-summary": [
+            "text": [
             self.semantic_splitter,
             self.size_limiter,
             self.summary_transform

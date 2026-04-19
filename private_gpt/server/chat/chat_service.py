@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from injector import inject, singleton
-from llama_index.core.chat_engine import ContextChatEngine, SimpleChatEngine
+from llama_index.core.chat_engine import SimpleChatEngine
 from llama_index.core.chat_engine.types import (
     BaseChatEngine,
 )
@@ -13,9 +13,12 @@ from llama_index.core.postprocessor import (
     SentenceTransformerRerank,
     SimilarityPostprocessor,
 )
-from llama_index.core.storage import StorageContext
 from llama_index.core.types import TokenGen
 from pydantic import BaseModel
+from llama_index.core.storage import StorageContext
+from llama_index.core.agent import ReActAgent
+from llama_index.core.tools import QueryEngineTool, ToolMetadata
+
 
 from private_gpt.components.embedding.embedding_component import EmbeddingComponent
 from private_gpt.components.llm.llm_component import LLMComponent
@@ -29,11 +32,16 @@ from private_gpt.settings.settings import Settings
 
 from llama_index.core.retrievers import QueryFusionRetriever
 from llama_index.retrievers.bm25 import BM25Retriever
+from llama_index.core.query_engine import RetrieverQueryEngine
+from llama_index.core.response_synthesizers import get_response_synthesizer
 
 import logging
 
 if TYPE_CHECKING:
     from llama_index.core.postprocessor.types import BaseNodePostprocessor
+
+logger = logging.getLogger(__name__)
+
 
 class Completion(BaseModel):
     response: str
@@ -78,165 +86,209 @@ class ChatEngineInput:
             chat_history=chat_history,
         )
 
+
+
 @singleton
 class ChatService:
-    settings: Settings
+     settings: Settings
 
-    @inject
-    def __init__(
-        self,
-        settings: Settings,
-        llm_component: LLMComponent,
-        vector_store_component: VectorStoreComponent,
-        embedding_component: EmbeddingComponent,
-        node_store_component: NodeStoreComponent,
-    ) -> None:
-        self.settings = settings
-        self.llm_component = llm_component
-        self.embedding_component = embedding_component
-        self.vector_store_component = vector_store_component
-        self.storage_context = StorageContext.from_defaults(
-            vector_store=vector_store_component.vector_store_text,
-            docstore=node_store_component.doc_store,
-            index_store=node_store_component.index_store,
-        )
-        self.vector_index = VectorStoreIndex.from_vector_store(
-            vector_store_component.vector_store_text,
-            storage_context=self.storage_context,
-            llm=llm_component.llm,
-            embed_model=embedding_component.embedding_model_text,
-            show_progress=True,
-        )
+     @inject
+     def __init__(
+          self,
+          settings: Settings,
+          llm_component: LLMComponent,
+          vector_store_component: VectorStoreComponent,
+          embedding_component: EmbeddingComponent,
+          node_store_component: NodeStoreComponent,
+     ) -> None:
+          self.settings = settings
+          self.llm_component = llm_component
+          self.embedding_component = embedding_component
+          self.vector_store_component = vector_store_component
 
-    def _chat_engine(
-        self,
-        user_prompt: str | None = None,
-        system_prompt: str | None = None,
-        use_context: bool = False,
-        context_filter: ContextFilter | None = None,
-    ) -> BaseChatEngine:
-        settings = self.settings
-        if use_context:
+          # --- Text Index ---
+          self.storage_context_text = StorageContext.from_defaults(
+               vector_store=vector_store_component.vector_store_text,
+               docstore=node_store_component.doc_store,
+               index_store=node_store_component.index_store,
+          )
+          self.vector_index_text = VectorStoreIndex.from_vector_store(
+               vector_store_component.vector_store_text,
+               storage_context=self.storage_context_text,
+               llm=llm_component.llm,
+               embed_model=embedding_component.embedding_model_text,
+               show_progress=True,
+          )
 
-            # Vector Retriever
-            vector_retriever = self.vector_store_component.get_retriever(
-                index=self.vector_index,
-                context_filter=context_filter,
-                similarity_top_k=self.settings.rag.similarity_top_k,
-                additional_filters=None,
-            )
+          # --- Code Index ---
+          self.storage_context_code = StorageContext.from_defaults(
+               vector_store=vector_store_component.vector_store_code,
+               docstore=node_store_component.doc_store,
+               index_store=node_store_component.index_store,
+          )
+          self.vector_index_code = VectorStoreIndex.from_vector_store(
+               vector_store_component.vector_store_code,
+               storage_context=self.storage_context_code,
+               llm=llm_component.llm,
+               embed_model=embedding_component.embedding_model_code,
+               show_progress=True,
+          )
 
-            # BM25 retriever
-            bm25_retriever = BM25Retriever.from_defaults(
-                docstore=self.storage_context.docstore,
-                similarity_top_k=1,
-            )
-
-            # Hybrid Retriever with Reciprocal Rank Fusion
-            hybrid_retriever = QueryFusionRetriever(
-                retrievers=[vector_retriever, bm25_retriever],
-                mode="reciprocal_rerank",
-                num_queries=1,
-                similarity_top_k=self.settings.rag.similarity_top_k,
-                llm=self.llm_component.llm
-            )
-
-            node_postprocessors: list[BaseNodePostprocessor] = [
-                MetadataReplacementPostProcessor(target_metadata_key="window"),
-            ]
-            if settings.rag.similarity_value:
-                node_postprocessors.append(
+     def _build_node_postprocessors(self) -> list["BaseNodePostprocessor"]:
+          settings = self.settings
+          node_postprocessors: list[BaseNodePostprocessor] = [
+               MetadataReplacementPostProcessor(target_metadata_key="window"),
+          ]
+          if settings.rag.similarity_value:
+               node_postprocessors.append(
                     SimilarityPostprocessor(
-                        similarity_cutoff=settings.rag.similarity_value
+                         similarity_cutoff=settings.rag.similarity_value
                     )
-                )
+               )
+          if settings.rag.rerank.enabled:
+               node_postprocessors.append(
+                    SentenceTransformerRerank(
+                         model=settings.rag.rerank.model,
+                         top_n=settings.rag.rerank.top_n,
+                    )
+               )
+          return node_postprocessors
 
-            if settings.rag.rerank.enabled:
-                rerank_postprocessor = SentenceTransformerRerank(
-                    model=settings.rag.rerank.model,
-                    top_n=settings.rag.rerank.top_n,
-                )
-                node_postprocessors.append(rerank_postprocessor)
+     def _build_tools(self) -> list:
+          node_postprocessors = self._build_node_postprocessors()
 
-            return ContextChatEngine.from_defaults(
-                system_prompt=system_prompt,
-                retriever=hybrid_retriever,  # Hybrid statt nur Vector
-                llm=self.llm_component.llm,
-                node_postprocessors=node_postprocessors,
-            )
-        else:
-            return SimpleChatEngine.from_defaults(
-                system_prompt=system_prompt,
-                llm=self.llm_component.llm,
-            )
-    def stream_chat(
-        self,
-        messages: list[ChatMessage],
-        use_context: bool = False,
-        context_filter: ContextFilter | None = None,
-    ) -> CompletionGen:
-        chat_engine_input = ChatEngineInput.from_messages(messages)
-        last_message = (
-            chat_engine_input.last_message.content
-            if chat_engine_input.last_message
-            else None
-        )
-        system_prompt = (
-            chat_engine_input.system_message.content
-            if chat_engine_input.system_message
-            else None
-        )
-        chat_history = (
-            chat_engine_input.chat_history if chat_engine_input.chat_history else None
-        )
-        chat_engine = self._chat_engine(
-            user_prompt=last_message,
-            system_prompt=system_prompt,
-            use_context=use_context,
-            context_filter=context_filter,
-        )
-        streaming_response = chat_engine.stream_chat(
-            message=last_message if last_message is not None else "",
-            chat_history=chat_history,
-        )
+          response_synthesizer = get_response_synthesizer(
+               response_mode="no_text"
+          )
 
-        sources = [Chunk.from_node(node) for node in streaming_response.source_nodes]
-        
-        completion_gen = CompletionGen(
-            response=streaming_response.response_gen, sources=sources
-        )
-        return completion_gen
+          # --- Text Search Tool (hybrid: vector + BM25) ---
+          vector_retriever_text = self.vector_store_component.get_retriever(
+               index=self.vector_index_text,
+               context_filter=None,
+               similarity_top_k=self.settings.rag.similarity_top_k,
+          )
+          bm25_retriever = BM25Retriever.from_defaults(
+               docstore=self.storage_context_text.docstore,
+               similarity_top_k=1,
+          )
+          hybrid_retriever = QueryFusionRetriever(
+               retrievers=[vector_retriever_text, bm25_retriever],
+               mode="reciprocal_rerank",
+               num_queries=1,
+               similarity_top_k=self.settings.rag.similarity_top_k,
+               llm=self.llm_component.llm,
+          )
 
-    def chat(
-        self,
-        messages: list[ChatMessage],
-        use_context: bool = False,
-        context_filter: ContextFilter | None = None,
-    ) -> Completion:
-        chat_engine_input = ChatEngineInput.from_messages(messages)
-        last_message = (
-            chat_engine_input.last_message.content
-            if chat_engine_input.last_message
-            else None
-        )
-        system_prompt = (
-            chat_engine_input.system_message.content
-            if chat_engine_input.system_message
-            else None
-        )
-        chat_history = (
-            chat_engine_input.chat_history if chat_engine_input.chat_history else None
-        )
+          text_query_engine = RetrieverQueryEngine(
+               retriever=hybrid_retriever,
+               node_postprocessors=node_postprocessors,
+               response_synthesizer=response_synthesizer,
+          )
 
-        chat_engine = self._chat_engine(
-            system_prompt=system_prompt,
-            use_context=use_context,
-            context_filter=context_filter,
-        )
-        wrapped_response = chat_engine.chat(
-            message=last_message if last_message is not None else "",
-            chat_history=chat_history,
-        )
-        sources = [Chunk.from_node(node) for node in wrapped_response.source_nodes]
-        completion = Completion(response=wrapped_response.response, sources=sources)
-        return completion
+          doc_search_tool = QueryEngineTool(
+               query_engine=text_query_engine,
+               metadata=ToolMetadata(
+                    name="document_search",
+                    description=(
+                         "Searches the uploaded documents (text files, PDFs, etc.)."
+                         "Use this tool for any questions regarding the "
+                         "user's text documents."
+                    ),
+               ),
+          )
+
+          # --- Code Search Tool (vector only) ---
+          vector_retriever_code = self.vector_store_component.get_retriever(
+               index=self.vector_index_code,
+               context_filter=None,
+               similarity_top_k=self.settings.rag.similarity_top_k,
+          )
+
+          code_query_engine = RetrieverQueryEngine(
+               retriever=vector_retriever_code,
+               node_postprocessors=node_postprocessors,
+               response_synthesizer=response_synthesizer,
+          )
+
+          code_search_tool = QueryEngineTool(
+               query_engine=code_query_engine,
+               metadata=ToolMetadata(
+                    name="code_search",
+                    description=(
+                         "Searches uploaded code files and source code. "
+                         "Use this tool for all questions about code, "
+                         "functions, classes, implementations and "
+                         "technical details in the user's source code."
+                    ),
+               ),
+          )
+
+          return [doc_search_tool, code_search_tool]
+
+     def _chat_engine(
+          self,
+          system_prompt: str | None = None,
+          use_context: bool = False,
+          context_filter: ContextFilter | None = None,
+     ) -> BaseChatEngine:
+          
+          if use_context:
+               tools = self._build_tools()
+               
+               agent = ReActAgent.from_tools(
+                    tools=tools,
+                    llm=self.llm_component.llm,
+                    verbose=True,
+                    system_prompt=system_prompt or (""),
+                    max_iterations=10,
+               )
+               return agent
+          else:
+               return SimpleChatEngine.from_defaults(
+                    system_prompt=system_prompt,
+                    llm=self.llm_component.llm,
+               )
+
+     def chat(
+          self,
+          messages: list[ChatMessage],
+          use_context: bool = False,
+          context_filter: ContextFilter | None = None,
+     ) -> Completion:
+          chat_engine_input = ChatEngineInput.from_messages(messages)
+          last_message = (
+               chat_engine_input.last_message.content
+               if chat_engine_input.last_message
+               else None
+          )
+          system_prompt = (
+               chat_engine_input.system_message.content
+               if chat_engine_input.system_message
+               else None
+          )
+          chat_history = (
+               chat_engine_input.chat_history if chat_engine_input.chat_history else None
+          )
+          chat_engine = self._chat_engine(
+               system_prompt=system_prompt,
+               use_context=use_context,
+               context_filter=context_filter,
+          )
+          
+          wrapped_response = chat_engine.chat(
+               message=last_message if last_message is not None else "",
+               chat_history=chat_history,
+          )
+          
+          sources = []
+          if hasattr(wrapped_response, 'source_nodes'):
+               sources = [Chunk.from_node(node) for node in wrapped_response.source_nodes]
+          elif hasattr(wrapped_response, 'sources'):
+               for tool_output in wrapped_response.sources:
+                    if hasattr(tool_output, 'raw_output') and hasattr(tool_output.raw_output, 'source_nodes'):
+                         sources.extend(
+                              Chunk.from_node(node) 
+                              for node in tool_output.raw_output.source_nodes
+                         )
+
+          return Completion(response=str(wrapped_response), sources=sources)
