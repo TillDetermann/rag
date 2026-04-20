@@ -14,10 +14,14 @@ from llama_index.core.postprocessor import (
     SimilarityPostprocessor,
 )
 from llama_index.core.types import TokenGen
+from private_gpt.server.chat.formatted_nod_synthesizer import FormattedNodeSynthesizer
+from private_gpt.server.chat.streaming_agent_handler import StreamingAgentHandler
 from pydantic import BaseModel
 from llama_index.core.storage import StorageContext
 from llama_index.core.agent import ReActAgent
-from llama_index.core.tools import QueryEngineTool, ToolMetadata
+from llama_index.core.tools import FunctionTool
+from llama_index.core.schema import QueryBundle
+from llama_index.core.callbacks import CallbackManager
 
 
 from private_gpt.components.embedding.embedding_component import EmbeddingComponent
@@ -30,11 +34,7 @@ from private_gpt.open_ai.extensions.context_filter import ContextFilter
 from private_gpt.server.chunks.chunks_service import Chunk
 from private_gpt.settings.settings import Settings
 
-from llama_index.core.retrievers import QueryFusionRetriever
 from llama_index.retrievers.bm25 import BM25Retriever
-from llama_index.core.query_engine import RetrieverQueryEngine
-from llama_index.core.response_synthesizers import get_response_synthesizer
-
 import logging
 
 if TYPE_CHECKING:
@@ -85,8 +85,6 @@ class ChatEngineInput:
             last_message=last_message,
             chat_history=chat_history,
         )
-
-
 
 @singleton
 class ChatService:
@@ -157,74 +155,91 @@ class ChatService:
      def _build_tools(self) -> list:
           node_postprocessors = self._build_node_postprocessors()
 
-          response_synthesizer = get_response_synthesizer(
-               response_mode="no_text"
+          # --- BM25 Keyword Search ---
+          bm25_retriever = BM25Retriever.from_defaults(
+               docstore=self.storage_context_text.docstore,
+               similarity_top_k=self.settings.rag.similarity_top_k,
           )
 
-          # --- Text Search Tool (hybrid: vector + BM25) ---
+          def _postprocess(nodes, query_str):
+               for pp in node_postprocessors:
+                    nodes = pp.postprocess_nodes(
+                         nodes, query_bundle=QueryBundle(query_str=query_str)
+                    )
+               return nodes
+
+          def _format_nodes(nodes):
+               if not nodes:
+                    return "No relevant documents found."
+               parts = []
+               for i, node in enumerate(nodes, 1):
+                    text = node.get_content()
+                    file_name = node.metadata.get("file_name", "unknown")
+                    score = f" (score: {node.score:.2f})" if node.score else ""
+                    parts.append(f"[Source {i} - {file_name}{score}]: {text}")
+               return "\n\n".join(parts)
+
+          def document_keyword_search(query: str) -> str:
+               """Keyword search in text documents."""
+               nodes = bm25_retriever.retrieve(query)
+               nodes = _postprocess(nodes, query)
+               return _format_nodes(nodes)
+
+          # --- Vector Semantic Search ---
           vector_retriever_text = self.vector_store_component.get_retriever(
                index=self.vector_index_text,
                context_filter=None,
                similarity_top_k=self.settings.rag.similarity_top_k,
           )
-          bm25_retriever = BM25Retriever.from_defaults(
-               docstore=self.storage_context_text.docstore,
-               similarity_top_k=1,
-          )
-          hybrid_retriever = QueryFusionRetriever(
-               retrievers=[vector_retriever_text, bm25_retriever],
-               mode="reciprocal_rerank",
-               num_queries=1,
-               similarity_top_k=self.settings.rag.similarity_top_k,
-               llm=self.llm_component.llm,
-          )
 
-          text_query_engine = RetrieverQueryEngine(
-               retriever=hybrid_retriever,
-               node_postprocessors=node_postprocessors,
-               response_synthesizer=response_synthesizer,
-          )
+          def document_semantic_search(query: str) -> str:
+               """Semantic search in text documents."""
+               nodes = vector_retriever_text.retrieve(query)
+               nodes = _postprocess(nodes, query)
+               return _format_nodes(nodes)
 
-          doc_search_tool = QueryEngineTool(
-               query_engine=text_query_engine,
-               metadata=ToolMetadata(
-                    name="document_search",
-                    description=(
-                         "Searches the uploaded documents (text files, PDFs, etc.)."
-                         "Use this tool for any questions regarding the "
-                         "user's text documents."
-                    ),
-               ),
-          )
-
-          # --- Code Search Tool (vector only) ---
+          # --- Code Search ---
           vector_retriever_code = self.vector_store_component.get_retriever(
                index=self.vector_index_code,
                context_filter=None,
                similarity_top_k=self.settings.rag.similarity_top_k,
           )
 
-          code_query_engine = RetrieverQueryEngine(
-               retriever=vector_retriever_code,
-               node_postprocessors=node_postprocessors,
-               response_synthesizer=response_synthesizer,
-          )
+          def code_search(query: str) -> str:
+               """Search in code files."""
+               nodes = vector_retriever_code.retrieve(query)
+               nodes = _postprocess(nodes, query)
+               return _format_nodes(nodes)
 
-          code_search_tool = QueryEngineTool(
-               query_engine=code_query_engine,
-               metadata=ToolMetadata(
-                    name="code_search",
+          return [
+               FunctionTool.from_defaults(
+                    fn=document_keyword_search,
+                    name="document_keyword_search",
                     description=(
-                         "Searches uploaded code files and source code. "
-                         "Use this tool for all questions about code, "
-                         "functions, classes, implementations and "
-                         "technical details in the user's source code."
+                         "Keyword and exact-term search over the user's uploaded documents. "
+                         "Best for exact phrases, specific terminology, names, identifiers, "
+                         "error messages, section titles, and literal text matches."
                     ),
                ),
-          )
-
-          return [doc_search_tool, code_search_tool]
-
+               FunctionTool.from_defaults(
+                    fn=document_semantic_search,
+                    name="document_semantic_search",
+                    description=(
+                         "Semantic search over the user's uploaded documents. "
+                         "Best for meaning-based questions, summaries, explanations, "
+                         "and finding relevant passages even when the exact wording differs."
+                    ),
+               ),
+               FunctionTool.from_defaults(
+                    fn=code_search,
+                    name="code_search",
+                    description=(
+                         "Searches the user's uploaded source code files. "
+                         "Use for questions about functions, classes, methods, APIs, "
+                         "implementations, logic, bugs, and software engineering details."
+                    ),
+               ),
+          ]
      def _chat_engine(
           self,
           system_prompt: str | None = None,
@@ -234,13 +249,18 @@ class ChatService:
           
           if use_context:
                tools = self._build_tools()
-               
+
+               # Callback for thinking steps
+               handler = StreamingAgentHandler()
+               callback_manager = CallbackManager([handler])
+
                agent = ReActAgent.from_tools(
                     tools=tools,
                     llm=self.llm_component.llm,
                     verbose=True,
-                    system_prompt=system_prompt or (""),
+                    system_prompt=system_prompt,
                     max_iterations=10,
+                    callback_manager=callback_manager,
                )
                return agent
           else:
@@ -285,10 +305,52 @@ class ChatService:
                sources = [Chunk.from_node(node) for node in wrapped_response.source_nodes]
           elif hasattr(wrapped_response, 'sources'):
                for tool_output in wrapped_response.sources:
-                    if hasattr(tool_output, 'raw_output') and hasattr(tool_output.raw_output, 'source_nodes'):
-                         sources.extend(
-                              Chunk.from_node(node) 
-                              for node in tool_output.raw_output.source_nodes
-                         )
+                    if hasattr(tool_output, 'raw_output'):
+                         raw = tool_output.raw_output
+                         if hasattr(raw, 'source_nodes'):
+                              sources.extend(
+                                   Chunk.from_node(node)
+                                   for node in raw.source_nodes
+                              )
+                         elif isinstance(raw, str):
+                              # FunctionTool gibt String zurück, keine source_nodes
+                              # Sources sind im Antworttext enthalten
+                              pass
 
           return Completion(response=str(wrapped_response), sources=sources)
+     
+
+     def stream_chat(
+          self,
+          messages: list[ChatMessage],
+          use_context: bool = False,
+          context_filter: ContextFilter | None = None,
+     ) -> CompletionGen:
+          chat_engine_input = ChatEngineInput.from_messages(messages)
+          last_message = (
+               chat_engine_input.last_message.content
+               if chat_engine_input.last_message
+               else None
+          )
+          system_prompt = (
+               chat_engine_input.system_message.content
+               if chat_engine_input.system_message
+               else None
+          )
+          chat_history = (
+               chat_engine_input.chat_history if chat_engine_input.chat_history else None
+          )
+          chat_engine = self._chat_engine(
+               system_prompt=system_prompt,
+               use_context=use_context,
+               context_filter=context_filter,
+          )
+
+          streaming_response = chat_engine.stream_chat(
+               message=last_message if last_message is not None else "",
+               chat_history=chat_history,
+          )
+          return CompletionGen(
+               response=streaming_response.response_gen,
+               sources=[],
+          )

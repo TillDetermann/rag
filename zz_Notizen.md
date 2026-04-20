@@ -114,10 +114,12 @@ To csv: https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfd
 
 ## 5. TODOs:
 
-- Code database aufbauen
-  - zwei storage context etablieren
-  - gedanken machen wie man das schön umsetzten kann -> metadaten?
-  - gucken wie das mit den doc id is
+- Wie sehen Fragen wirklich aus? muss da was in den system propmt zum beispiel.
+
+- rag agent machen:
+  - chat prüfen
+  - welche tools
+
 - code ingestion pipline umsetzten
   - große llm anbinden
 

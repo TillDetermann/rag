@@ -28,81 +28,33 @@ ui:
   # "RAG", "Search", "Basic", or "Summarize"
   default_mode: "RAG"
   default_chat_system_prompt: >
-    You are an expert RobotC developer specializing in robotics programming and debugging.
-    Your role is to provide accurate, practical guidance on the following topics:
-    - RobotC programming syntax and best practices
-    - Robotics system architecture and design patterns
-    - Hardware integration (motors, sensors, controllers)
-    - Debugging techniques and error analysis
-    - Performance optimization for embedded systems
-
-    Always answer based on the provided codebase context and your expertise.
-    When analyzing code, explain:
-    1. What each component does and why
-    2. How different modules interact with each other
-    3. Potential issues or anti-patterns
-    4. Suggested improvements or fixes
-
-    If you're unsure or the information isn't in the context, clearly state that.
-    Provide code examples and practical recommendations when relevant.
+    Temp
 
   default_query_system_prompt: >
-    You are an expert Robot debugging assistant for robotics projects.
-    Answer questions strictly based on the provided codebase context regarding:
-    - Robot code structure and implementation details
-    - Hardware connections and sensor/motor configurations
-    - Control algorithms and motion logic
-    - Error conditions and edge cases
-    - Integration between different modules and systems
+    You are an expert software engineer assistant that helps users understand their codebase and documentation.
 
-    When answering, focus on:
-    1. Understanding the current implementation in context
-    2. Identifying potential bugs, inefficiencies, or design issues
-    3. Tracing data flow through the system
-    4. Explaining error messages and their root causes
+    When a user asks a question, follow this strategy:
 
-    If the answer is clearly in the provided codebase, provide a detailed technical response.
-    Explain:
-    - What the code does
-    - How it connects to other parts
-    - Potential issues found
+    1. UNDERSTAND: First search the documents to understand the general context and architecture around the topic.
+    2. LOCATE: Then search the code to find the specific implementation, classes, and functions involved.
+    3. ANALYZE: If needed, do additional searches to find related components, error handling, edge cases, and dependencies.
+    4. ANSWER: Only after gathering sufficient context, provide a comprehensive answer.
 
-    If the information is not in the provided codebase context, explicitly state:
-    "This information is not available in the provided documentation."
+    IMPORTANT RULES:
+    - Always use at least 2 different tools before answering.
+    - For debugging or failure questions: find BOTH the documentation AND the code that handles the scenario.
+    - Never answer based on a single search result.
+    - If a search returns no results, try different keywords.
+    - Cite the source files in your answer.
+
+    Example workflow for "why does pressure build-up fail?":
+    1. document_keyword_search("pressure build up fail") -> find documentation
+    2. code_search("PressureBuildup") -> find the implementation
+    3. code_search("error pressure timeout") -> find error handling
+    4. Answer with full context from all sources
 
   default_summarization_system_prompt: >
-    Provide a comprehensive technical summary of the RobotC project codebase.
-    The summary should cover:
-
-    **System Architecture:**
-    - Main components and their responsibilities
-    - How different modules interact
-    - Data flow through the system
-
-    **Hardware Configuration:**
-    - Connected devices (motors, sensors, controllers)
-    - Pin/port assignments
-    - Expected inputs and outputs
-
-    **Key Functionality:**
-    - Primary behaviors and control flows
-    - State machines or decision logic
-    - Critical functions and their purposes
-
-    **Current Issues & Observations:**
-    - Potential bugs or error-prone areas
-    - Performance bottlenecks
-    - Missing error handling
-    - Code quality concerns
-
-    **Integration Points:**
-    - How components communicate
-    - Dependencies between modules
-    - External interfaces
-
-    Focus on technical accuracy and practical understanding of how the robot system works.
-    Organize the summary logically with clear sections for different topics.
-    Highlight critical functionality and potential failure points.
+    Temp
 
   delete_file_button_enabled: true
   delete_all_files_button_enabled: true
@@ -110,8 +62,8 @@ ui:
 llm:
   mode: ollama
   # Should be matching the selected model
-  max_new_tokens: 512
-  context_window: 3900
+  max_new_tokens: 2048
+  context_window: 8192
   # Select your tokenizer. Llama-index tokenizer is the default.
   # tokenizer: meta-llama/Meta-Llama-3.1-8B-Instruct
   temperature: 0.1 # The temperature of the model. Increasing the temperature will make the model answer more creatively. A value of 0.1 would be more factual. (Default: 0.1)
@@ -124,23 +76,8 @@ rag:
   rerank:
     enabled: true
     model: cross-encoder/ms-marco-MiniLM-L-12-v2
-    top_n: 4
+    top_n: 2
 
-metadata_generation:
-  enable: false
-  max_entry_per_category: 2
-  predefined:
-    content:
-      - genetic
-      - linear
-      - optimization
-      - building
-      - game
-
-    text_type:
-      - Analysis
-      - Report
-      - Facts
 summarize:
   use_async: true
 
@@ -149,7 +86,7 @@ embedding:
   mode: ollama
   ingest_mode: simple
   embed_dim_text: 768 # 768 is for nomic-ai/nomic-embed-text-v1.5
-  embed_dim_code: 768
+  embed_dim_code: 768 # 768 is for vuongnguyen2212/CodeRankEmbed
 
 vectorstore:
   database: postgres
