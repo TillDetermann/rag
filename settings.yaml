@@ -103,7 +103,8 @@ postgres:
   schema_name: private_gpt
 
 ollama:
-  llm_model: qwen3:4b
+  llm_model: qwen3:8b
+  thinking: false
   embedding_model_text: nomic-embed-text
   embedding_model_code: vuongnguyen2212/CodeRankEmbed
   worker_llm: qwen2.5:0.5b

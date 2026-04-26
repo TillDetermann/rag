@@ -4,9 +4,9 @@ from collections.abc import Iterator
 from typing import Literal
 
 from llama_index.core.llms import ChatResponse, CompletionResponse
+from private_gpt.server.utils.chunk import Chunk
 from pydantic import BaseModel, Field
 
-from private_gpt.server.chunks.chunks_service import Chunk
 
 
 class OpenAIDelta(BaseModel):

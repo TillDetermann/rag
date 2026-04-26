@@ -30,12 +30,13 @@ class LLMComponent:
                 ollama_settings = settings.ollama
 
                 settings_kwargs = {
-                    "tfs_z": ollama_settings.tfs_z,  # ollama and llama-cpp
-                    "num_predict": ollama_settings.num_predict,  # ollama only
-                    "top_k": ollama_settings.top_k,  # ollama and llama-cpp
-                    "top_p": ollama_settings.top_p,  # ollama and llama-cpp
-                    "repeat_last_n": ollama_settings.repeat_last_n,  # ollama
-                    "repeat_penalty": ollama_settings.repeat_penalty,  # ollama llama-cpp
+                    "tfs_z": ollama_settings.tfs_z,
+                    "num_predict": ollama_settings.num_predict,
+                    "top_k": ollama_settings.top_k,  
+                    "top_p": ollama_settings.top_p,  
+                    "repeat_last_n": ollama_settings.repeat_last_n,
+                    "repeat_penalty": ollama_settings.repeat_penalty,
+                    "think": ollama_settings.thinking,
                 }
 
                 # calculate llm model. If not provided tag, it will be use latest

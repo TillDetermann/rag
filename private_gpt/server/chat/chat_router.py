@@ -11,6 +11,7 @@ from private_gpt.open_ai.openai_models import (
     to_openai_sse_stream,
 )
 from private_gpt.server.chat.chat_service import ChatService
+from private_gpt.server.chat.chat_agent_service import ChatAgentService
 from private_gpt.server.utils.auth import authenticated
 
 chat_router = APIRouter(prefix="/v1", dependencies=[Depends(authenticated)])
@@ -22,6 +23,7 @@ class ChatBody(BaseModel):
     context_filter: ContextFilter | None = None
     include_sources: bool = True
     stream: bool = False
+    use_agent: bool = False
 
     model_config = {
         "json_schema_extra": {
@@ -40,6 +42,7 @@ class ChatBody(BaseModel):
                     "stream": False,
                     "use_context": True,
                     "include_sources": True,
+                    "use_agent": False,
                     "context_filter": {
                         "docs_ids": ["c202d5e6-7b69-4869-81cc-dd574ee8ee11"]
                     },
@@ -76,6 +79,10 @@ def chat_completion(
     Ingested documents IDs can be found using `/ingest/list` endpoint. If you want
     all ingested documents to be used, remove `context_filter` altogether.
 
+    If `use_agent` is set to `true`, the request will be handled by the
+    ChatAgentService instead of the default ChatService. The agent service
+    provides additional capabilities such as tool usage and multi-step reasoning.
+
     When using `'include_sources': true`, the API will return the source Chunks used
     to create the response, which come from the context provided.
 
@@ -87,7 +94,11 @@ def chat_completion(
     "finish_reason":null}]}
     ```
     """
-    service = request.state.injector.get(ChatService)
+    if body.use_agent:
+        service = request.state.injector.get(ChatAgentService)
+    else:
+        service = request.state.injector.get(ChatService)
+
     all_messages = [
         ChatMessage(content=m.content, role=MessageRole(m.role)) for m in body.messages
     ]

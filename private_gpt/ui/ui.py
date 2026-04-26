@@ -14,13 +14,14 @@ from gradio.themes.utils.colors import slate  # type: ignore
 from injector import inject, singleton
 from llama_index.core.llms import ChatMessage, ChatResponse, MessageRole
 from llama_index.core.types import TokenGen
+from private_gpt.server.chat.chat_agent_service import ChatAgentService
+from private_gpt.server.utils.chunk import Chunk
 from pydantic import BaseModel
 
 from private_gpt.constants import PROJECT_ROOT_PATH
 from private_gpt.di import global_injector
 from private_gpt.open_ai.extensions.context_filter import ContextFilter
 from private_gpt.server.chat.chat_service import ChatService, CompletionGen
-from private_gpt.server.chunks.chunks_service import Chunk, ChunksService
 from private_gpt.server.ingest.ingest_service import IngestService
 from private_gpt.server.recipes.summarize.summarize_service import SummarizeService
 from private_gpt.settings.settings import settings
@@ -39,14 +40,14 @@ SOURCES_SEPARATOR = "<hr>Sources: \n"
 
 class Modes(str, Enum):
     RAG_MODE = "RAG"
-    SEARCH_MODE = "Search"
+    AGENT_MODE = "AGENT"
     BASIC_CHAT_MODE = "Basic"
     SUMMARIZE_MODE = "Summarize"
 
 
 MODES: list[Modes] = [
     Modes.RAG_MODE,
-    Modes.SEARCH_MODE,
+    Modes.AGENT_MODE,
     Modes.BASIC_CHAT_MODE,
     Modes.SUMMARIZE_MODE,
 ]
@@ -86,12 +87,12 @@ class PrivateGptUi:
         self,
         ingest_service: IngestService,
         chat_service: ChatService,
-        chunks_service: ChunksService,
+        chat_agent_service: ChatAgentService,
         summarizeService: SummarizeService,
     ) -> None:
         self._ingest_service = ingest_service
         self._chat_service = chat_service
-        self._chunks_service = chunks_service
+        self._chat_agent_service = chat_agent_service
         self._summarize_service = summarizeService
 
         # Cache the UI blocks
@@ -192,6 +193,24 @@ class PrivateGptUi:
                     context_filter=context_filter,
                 )
                 yield from yield_deltas(query_stream)
+            case Modes.AGENT_MODE:
+                context_filter = None
+                if self._selected_filename is not None:
+                    docs_ids = []
+                    for ingested_document in self._ingest_service.list_ingested():
+                        if (
+                            ingested_document.doc_metadata["file_name"]
+                            == self._selected_filename
+                        ):
+                            docs_ids.append(ingested_document.doc_id)
+                    context_filter = ContextFilter(docs_ids=docs_ids)
+
+                query_stream = self._chat_agent_service.stream_chat(
+                    messages=all_messages,
+                    use_context=True,
+                    context_filter=context_filter,
+                )
+                yield from yield_deltas(query_stream)
             case Modes.BASIC_CHAT_MODE:
                 llm_stream = self._chat_service.stream_chat(
                     messages=all_messages,
@@ -199,19 +218,7 @@ class PrivateGptUi:
                 )
                 yield from yield_deltas(llm_stream)
 
-            case Modes.SEARCH_MODE:
-                response = self._chunks_service.retrieve_relevant(
-                    text=message, limit=4, prev_next_chunks=0
-                )
 
-                sources = Source.curate_sources(response)
-
-                yield "\n\n\n".join(
-                    f"{index}. **{source.file} "
-                    f"(page {source.page})**\n "
-                    f"{source.text}"
-                    for index, source in enumerate(sources, start=1)
-                )
             case Modes.SUMMARIZE_MODE:
                 # Summarize the given message, optionally using selected files
                 context_filter = None
@@ -257,8 +264,8 @@ class PrivateGptUi:
         match mode:
             case Modes.RAG_MODE:
                 return "Get contextualized answers from selected files."
-            case Modes.SEARCH_MODE:
-                return "Find relevant chunks of text in selected files."
+            case Modes.AGENT_MODE:
+                return "Get contextualized answers from selected files, with agent."
             case Modes.BASIC_CHAT_MODE:
                 return "Chat with the LLM using its training data. Files are ignored."
             case Modes.SUMMARIZE_MODE:

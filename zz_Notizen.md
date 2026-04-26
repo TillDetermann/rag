@@ -114,18 +114,15 @@ To csv: https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfd
 
 ## 5. TODOs:
 
-- Wie sehen Fragen wirklich aus? muss da was in den system propmt zum beispiel.
-
-- rag agent machen:
-  - chat prüfen
-  - welche tools
-
-- code ingestion pipline umsetzten
-  - große llm anbinden
+- wie viel kosten großen llm im agent modus: GPT-5 Mini~$0.25~$2.00
+- wie funktioniert eine api, geht das easy mit llamaindex.
+- Hybrid system implemntieren:
 
 - Gedanken machen was man mit metadaten alles machen kann
   - wenn user in prompt synnomu benutzt(ventik 4), ergänzen mit allen anderen begrifflickeitem
   - wenn im ingestion docuemtn doppeldeutgkeiten gefunden werden auch ersetzetn
+
+- Wie sehen Fragen wirklich aus? muss da was in den system propmt zum beispiel.
 
 ## 6. Befehle
 

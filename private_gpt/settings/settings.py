@@ -193,6 +193,10 @@ class OllamaSettings(BaseModel):
         None,
         description="Model to use. Example: 'llama2-uncensored'.",
     )
+    thinking: bool = Field(
+        True,
+        description="If the model use its 'thinking' mode",
+    )
     embedding_model_text: str = Field(
         None,
         description="Model to use for text. Example: 'nomic-embed-text'.",
